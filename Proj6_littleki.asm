@@ -306,7 +306,7 @@ ReadVal ENDP
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
 WriteVal PROC	numIn, strOut
-	local	asciiVal:sdword, numNeg:sdword
+	local	asciiVal:sdword, negFlag:sdword
 
 	; works on one value at a time
 
@@ -314,41 +314,16 @@ WriteVal PROC	numIn, strOut
 		; CHANGE THIS TO SET NUMNEG FLAG TO 1 OR 0 AND JUST USE ALL SAME CODE BLOCKS UNTIL END, CHECK FLAG AND DO NEG HANDLING IF 1
 		; if SDWORD is negative
 		cmp		numIn, 0
-		jge		_posNum		; jump to positive integer handling
-			; if SDWORD is greater than -10
-			cmp		numIn, -10
-			jle		_bigNeg		; jump to large negative handling
+		jg		_posNum		; jump to positive integer handling
+		je		_zeroVal	; handling for value of zero input
 
-			; convert to positive, will add negative ASCII sign last
+			; convert to positive and set negFlag, will add negative ASCII sign last
+			mov		negFlag, 1
 			mov		eax, -1
 			mov		ebx, numIn
 			mov		asciiVal, ebx
 			imul	eax, asciiVal
 			mov		asciiVal, eax
-
-			; add SDWORD to 48 for ASCII value
-			add		asciiVal, 48
-			mov		eax, asciiVal
-			mov		strOut, eax
-
-			; pass strOut to mDisplayString to print
-			mDisplayString	strOut
-
-_bigNeg:
-			; convert to positive, will add negative ASCII sign last
-			mov		eax, -1
-			mov		ebx, numIn
-			mov		asciiVal, ebx
-			imul	eax, asciiVal
-			mov		asciiVal, eax
-				; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
-
-					; append digit to output string
-				; if result SDWORD >= 10, div by 10 again, add remainder to 48 for next digit
-					; append digit to output string
-				; repeat until result is < 10, result is first digit
-					; append digit to output string
-			; output string is in reverse order, so it must be reversed
 
 
 
@@ -356,24 +331,23 @@ _bigNeg:
 _posNum:
 			; if SDWORD is less than 10
 			cmp		numIn, 10
-			jg		_bigPos		; jump to large positive handling
+			jg		_bigNum		; jump to large number handling
 
 				; add SDWORD to 48 for ASCII value
 				mov		ebx, numIn
 				mov		asciiVal, ebx
 				add		asciiVal, 48
-				mov		esi, offset asciiVal
+				mov		esi, asciiVal
 				mov		edi, strOut
 				std
 				lodsb
 				stosb
 
 				; pass strOut to mDisplayString to print
-				mDisplayString	strOut
-
+				jmp		_return
 
 			; if SDWORD is 10 or greater
-_bigPos:
+_bigNum:
 
 				; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
 				mov		eax, numIn
@@ -386,12 +360,12 @@ _bigPos:
 					; append digit to output string
 					std								; clear flag to work backwards from end of strOut
 					mov		edi, strOut+11			; set destination as end of strOut
-					mov		esi, offset asciiVal
+					mov		esi, asciiVal
 					lodsb
 					stosb
 						; must use STOSB/LODSB and writechar for this
 				; if result SDWORD >= 10, div by 10 again, add remainder to 48 for next digit
-_divLoopPos:
+_divLoop:
 				cmp		eax, 10
 				jl		_finish		; if quotient is less than 10, do finish handling 
 				cdq
@@ -400,26 +374,48 @@ _divLoopPos:
 				mov		asciiVal, edx
 				add		asciiVal, 48
 					; append digit to output string
-				mov		esi, offset asciiVal
+				mov		esi, asciiVal
 				std
 				lodsb
 				stosb
 				; repeat until result is < 10, result is first digit
-			jmp		_divLoopPos
+			jmp		_divLoop
 					; append digit to output string
 			; output string is in reverse order, so it must be reversed
-_finishPos:
+_finish:
 			; append quotient as final digit
 			mov		asciiVal, eax
 			add		asciiVal, 48
-			mov		esi, offset asciiVal
+			mov		esi, asciiVal
 			std
 			lodsb
 			stosb
+			cmp		negFlag, 1
+			je		_finishNeg
+			jmp		_return
 
-	; pass ASCII string to mDisplayString to print
+			; append negative sign if negative flag variable is set
+_finishNeg:
+			mov		asciiVal, 45
+			mov		esi, asciiVal
+			std
+			lodsb
+			stosb
+			jmp		_return
+
+_zeroVal:
+	mov		asciiVal, 48
+	mov		esi, asciiVal
+	mov		edi, strOut
+	std
+	lodsb
+	stosb
 
 _return:
+
+	; pass ASCII string to mDisplayString to print
+	mDisplayString	strOut
+
 	ret
 
 
