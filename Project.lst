@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 15:35:07
+Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 19:02:52
 "Project 6     (Proj6_littleki.asm			     Page 1 - 1
 
 
@@ -53,7 +53,7 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 15:35:07
 				;
 				; returns: arrayAddr = generated string address
 				; ---------------------------------------------------------------------------------
-				mGetString MACRO	inPrompt, inputStr, bytesLen
+				mGetString MACRO	inPrompt, inputStr, bytesLen, count
 
 				; called to get one integer at a time for the array
 
@@ -65,7 +65,7 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 15:35:07
 					
 				; ReadString and store to mGetInput
 					mov		edx, inputStr
-					mov		ecx, sizeof inputStr
+					mov		ecx, count
 					call	readstring
 					call	crlf
 
@@ -120,19 +120,24 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 15:35:07
 	   6F 74 20 76 61
 	   6C 69 64 2E 00
 
- 00000032 2A 2A 2A 2A 2A	mGetInput		byte		"***********",0						; input storage for mGetString
-	   2A 2A 2A 2A 2A
-	   2A 00
- 0000003E 0000000B		mGetCount		sdword		11									; max input string length for mGetString
- 00000042 00000000		mGetBytes		sdword		?									; number of input bytes read by mGetString
+ 00000032  0000000B [		mGetInput		byte		11	dup(0)							; input storage for mGetString
+	    00
+	   ]
+ 0000003D 0000000C		mGetCount		sdword		12									; max input string length for mGetString
+ 00000041 00000000		mGetBytes		sdword		?									; number of input bytes read by mGetString
 
- 00000046 00000000		readOut			sdword		?									; output storage for ReadVal
+ 00000045  0000000B [		mDispInput		byte		11	dup(0)							; input storage for mDisplayString
+	    00
+	   ]
 
- 0000004A  0000000A [		inputArray		sdword		10	dup(?)							; array for main proc to store mGetString input into
+ 00000050 00000000		readOut			sdword		?									; output storage for ReadVal
+ 00000054 00000000		writeIn			sdword		?									; input storage for WriteVal
+
+ 00000058  0000000A [		inputArray		sdword		10	dup(?)							; array for main proc to store mGetString input into
 	    00000000
 	   ]
- 00000072 00000000		inputSum		sdword		0									; variable for sum of input numbers
- 00000076 00000000		inputAvg		sdword		?									; variable for the average of input numbers
+ 00000080 00000000		inputSum		sdword		0									; variable for sum of input numbers
+ 00000084 00000000		inputAvg		sdword		?									; variable for the average of input numbers
 
 
  00000000			.code
@@ -170,40 +175,62 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 15:35:07
 
 				; TESTING------------------------------------
 
- 00000000  B8 00000000 R		mov		eax, offset inputPrompt
- 00000005  BB 00000032 R		mov		ebx, offset mGetInput
- 0000000A  BA 00000042 R		mov		edx, offset mGetBytes
 
-					mGetString	offset inputPrompt, offset mGetInput, offset mGetBytes
- 0000000F  BA 00000000 R     1		mov		edx, offset inputPrompt
- 00000014  E8 00000000 E     1		call	writestring
- 00000019  E8 00000000 E     1		call	crlf
- 0000001E  BA 00000032 R     1		mov		edx, offset mGetInput
-			     1		mov		ecx, sizeof offset mGetInput
-Proj6_littleki.asm(144) : error A2009:syntax error in expression
- mGetString(12): Macro Called From
-  Proj6_littleki.asm(144): Main Line Code
- 00000023  E8 00000000 E     1		call	readstring
- 00000028  E8 00000000 E     1		call	crlf
- 0000002D  A3 00000042 R     1		mov		[offset mGetBytes], eax
+				;	call	ReadVal		offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
+
+
+				;	call	WriteVal	writeIn, offset mDispInput
+
+				;	mov		eax, mGetBytes
+				;	call	writedec
+
+				;	mov		edx, offset mGetInput
+				;	call	writestring
 
 				; ENDT---------------------------------------
 
 
-				; loop ReadVal to get 10 user inputs
-					; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
-					; append readOut val to inputArray
+					; loop ReadVal to get 10 user inputs
+ 00000000  B9 0000000A			mov		ecx, 10					; loop 10 times for 10 inputs
+ 00000005  8B 3D 00000058 R		mov		edi, inputArray			; set inputArray as destination address
 
-				; display the integers, their sum, and truncated average with WriteVal
+ 0000000B			_readLoop:
+						; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
+						call	ReadVal		offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
+Proj6_littleki.asm(164) : error A2008:syntax error : ,
+
+						; append readOut val to inputArray
+ 0000000B  A1 00000050 R			mov		eax, readOut
+ 00000010  89 07				mov		[edi], eax			; move numerical val to inputArray index
+ 00000012  83 C7 04				add		edi, 4				; increment inputArray index
+ 00000015  E2 F4			loop	_readLoop
+
+
+
+					; display the integers, their sum, and truncated average with WriteVal
+ 00000017  8B 35 00000058 R		mov		esi, inputArray			; set inputArray as source address
+ 0000001D  B9 0000000A			mov		ecx, 10					; set loop counter to 10 to go through all array elements
+
+ 00000022			_writeLoop:
 					; print inputArray one element at a time with WriteVal
-						; pass element of inputArray to WriteVal, converts to string, printed by mDisplayString
+						; pass element of inputArray to WriteVal through writeIn variable, converts to string, printed by mDisplayString
+ 00000022  8B 06				mov		eax, [esi]
+ 00000024  A3 00000054 R			mov		writeIn, eax
+						call	WriteVal	writeIn, offset mDispInput
+Proj6_littleki.asm(183) : error A2008:syntax error : ,
 						; increment inputArray indexer
+ 00000029  83 C6 04				add		esi, 4
 						; pass next element of inputArray to WriteVal
+ 0000002C  E2 F4			loop	_writeLoop
+
+
 					; show sum
 						; add inputArray element val to inputSum
 						; increment inputArray indexer
 						; add next element val to inputSum
 						; call WriteVal on inputSum to convert and print with mDisplayString
+
+
 					; show average
 						; div inputSum by 10
 						; figure out rounding
@@ -212,13 +239,15 @@ Proj6_littleki.asm(144) : error A2009:syntax error in expression
 
 
 					Invoke ExitProcess,0	; exit to operating system
- 00000032  6A 00	   *	    push   +000000000h
- 00000034  E8 00000000 E   *	    call   ExitProcess
- 00000039			main ENDP
+ 0000002E  6A 00	   *	    push   +000000000h
+ 00000030  E8 00000000 E   *	    call   ExitProcess
+ 00000035			main ENDP
 
 
 				; ---------------------------------------------------------------------------------
 				; Name: ReadVal
+				;
+				;	takes string, outputs integer
 				;
 				;    1) Invoke the mGetString macro (see parameter requirements above) to get user input in the form of a string of digits.
 				;    2) Convert (using string primitives) the string of ascii digits to its numeric value representation (SDWORD), validating
@@ -243,23 +272,67 @@ Proj6_littleki.asm(144) : error A2009:syntax error in expression
 				; procedure altered should be described here. Registers should only be mentioned
 				; if you are trying to pass data back in them.
 				; ---------------------------------------------------------------------------------
- 00000039			ReadVal PROC
+ 00000035			ReadVal PROC	inputStr, outputNum, prompt, bytes, count
+					local	numChar:dword
 
-				; get user input from mGetString
+					; get user input from mGetString
 
-				; convert string to numbers
+					mGetString	prompt, inputStr, bytes, count
+ 00000035  55		   *	    push   ebp
+ 00000036  8B EC	   *	    mov    ebp, esp
+ 00000038  83 C4 FC	   *	    add    esp, 0FFFFFFFCh
+ 0000003B  8B 55 10	     1		mov		edx, prompt
+ 0000003E  E8 00000000 E     1		call	writestring
+ 00000043  E8 00000000 E     1		call	crlf
+ 00000048  8B 55 08	     1		mov		edx, inputStr
+ 0000004B  8B 4D 18	     1		mov		ecx, count
+ 0000004E  E8 00000000 E     1		call	readstring
+ 00000053  E8 00000000 E     1		call	crlf
+ 00000058  89 45 14	     1		mov		[bytes], eax
+
+
+					; convert string to numbers
+ 0000005B  C7 45 0C			mov		outputNum, 0		; clear output variable
+	   00000000
+ 00000062  8B 4D 14			mov		ecx, [bytes]		; use number of bytes input as loop counter
+ 00000065  FC				cld							; clear direction flag to have pointer increment
+ 00000066  8B 75 08			mov		esi, inputStr		; move string to convert to esi
+ 00000069  AC				lodsb						; store character in AL and increment esi
+ 0000006A  3C 30			cmp		al, 48				; check if char < 48
+ 0000006C  72 1C			jb		_notNum
+ 0000006E  3C 39			cmp		al, 57				; check if char > 57
+ 00000070  77 18			ja		_notNum
+ 00000072  2C 30			sub		al, 48				; subtract character value to get numerical value
+ 00000074  0F B6 C0			movzx	eax, al				; store numeric value
+ 00000077  89 45 FC			mov		numChar, eax
+ 0000007A  8B 45 0C			mov		eax, [outputNum]	; move output value to eax for mult
+ 0000007D  BB 0000000A			mov		ebx, 10
+ 00000082  F7 E3			mul		ebx
+ 00000084  03 45 FC			add		eax, numChar		; add numerical value
+ 00000087  89 45 0C			mov		outputNum, eax		; store final numerical value in outputNum
+
+
 					; handle cases of + or - leading characters
 					; validate no non-digits or +/- lead and not too large for 32-bit register
 						; print error message if not valid
 							; get new input
 						; print error message if no input
 							; get new input
- 00000039			ReadVal ENDP
+ 0000008A			_notNum:
+
+
+					ret
+ 0000008A  C9		   *	    leave  
+ 0000008B  C2 0014	   *	    ret    00014h
+
+
+ 0000008E			ReadVal ENDP
 
 
 				; ---------------------------------------------------------------------------------
 				; Name: WriteVal
 				;
+				;	takes integer, outputs string
 				;
 				;    1) Convert a numeric SDWORD value (input parameter, by value) to a string of ASCII digits.
 				;    2) Invoke the mDisplayString macro to print the ASCII representation of the SDWORD value to the output.
@@ -283,19 +356,39 @@ Proj6_littleki.asm(144) : error A2009:syntax error in expression
 				; procedure altered should be described here. Registers should only be mentioned
 				; if you are trying to pass data back in them.
 				; ---------------------------------------------------------------------------------
- 00000039			WriteVal PROC
+ 0000008E			WriteVal PROC	numIn, strOut
 
-				; works on one value at a time
+					; works on one value at a time
 
-				; convert SDWORD digits to ASCII
+					; convert SDWORD digits to ASCII
+						; if SDWORD is less than 10
+							; add SDWORD to 48 for ASCII value
+						; if SDWORD is 10 or greater
+							; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
+								; append digit to output string
+							; if result SDWORD >= 10, div by 10 again, add remainder to 48 for next digit
+								; append digit to output string
+							; repeat until result is < 10, result is first digit
+								; append digit to output string
+						; output string is in reverse order, so it must be reversed
 
-				; pass ASCII string to mDisplayString to print
+					; pass ASCII string to mDisplayString to print
 
- 00000039			WriteVal ENDP
+
+ 0000008E  55		   *	    push   ebp
+ 0000008F  8B EC	   *	    mov    ebp, esp
+					ret
+ 00000091  C9		   *	    leave  
+ 00000092  C2 0008	   *	    ret    00008h
+
+
+ 00000095			WriteVal ENDP
+Proj6_littleki.asm(328) : warning A6004:procedure argument or local not referenced : numIn
+Proj6_littleki.asm(328) : warning A6004:procedure argument or local not referenced : strOut
 
 
 				END main
-Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 15:35:07
+Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/02/22 19:02:52
 "Project 6     (Proj6_littleki.asm			     Symbols 2 - 1
 
 
@@ -397,8 +490,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 0000007A Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 00000044 Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000088 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000095 Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
@@ -468,7 +561,14 @@ ReadInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 ReadKeyFlush . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-ReadVal  . . . . . . . . . . . .	P Near	 00000044 _TEXT	Length= 00000000 Public STDCALL
+ReadVal  . . . . . . . . . . . .	P Near	 00000035 _TEXT	Length= 00000059 Public STDCALL
+  inputStr . . . . . . . . . . .	DWord	 bp + 00000008
+  outputNum  . . . . . . . . . .	DWord	 bp + 0000000C
+  prompt . . . . . . . . . . . .	DWord	 bp + 00000010
+  bytes  . . . . . . . . . . . .	DWord	 bp + 00000014
+  count  . . . . . . . . . . . .	DWord	 bp + 00000018
+  numChar  . . . . . . . . . . .	DWord	 bp - 00000004
+  _notNum  . . . . . . . . . . .	L Near	 0000008A _TEXT	
 SetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetConsoleCursorPosition . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -505,9 +605,13 @@ WriteStackFrameName  . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-WriteVal . . . . . . . . . . . .	P Near	 00000044 _TEXT	Length= 00000000 Public STDCALL
+WriteVal . . . . . . . . . . . .	P Near	 0000008E _TEXT	Length= 00000007 Public STDCALL
+  numIn  . . . . . . . . . . . .	DWord	 bp + 00000008
+  strOut . . . . . . . . . . . .	DWord	 bp + 0000000C
 WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000044 Public STDCALL
+main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000035 Public STDCALL
+  _readLoop  . . . . . . . . . .	L Near	 0000000B _TEXT	
+  _writeLoop . . . . . . . . . .	L Near	 00000022 _TEXT	
 printf . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 scanf  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 wsprintfA  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
@@ -736,25 +840,27 @@ errorInvalid . . . . . . . . . .	Byte	 00000019 _DATA
 exit . . . . . . . . . . . . . .	Text   	 INVOKE ExitProcess,0
 gray . . . . . . . . . . . . . .	Number	 00000008h   
 green  . . . . . . . . . . . . .	Number	 00000002h   
-inputArray . . . . . . . . . . .	DWord	 0000004A _DATA	
-inputAvg . . . . . . . . . . . .	DWord	 00000076 _DATA	
+inputArray . . . . . . . . . . .	DWord	 00000058 _DATA	
+inputAvg . . . . . . . . . . . .	DWord	 00000084 _DATA	
 inputPrompt  . . . . . . . . . .	Byte	 00000000 _DATA	
-inputSum . . . . . . . . . . . .	DWord	 00000072 _DATA	
+inputSum . . . . . . . . . . . .	DWord	 00000080 _DATA	
 lightBlue  . . . . . . . . . . .	Number	 00000009h   
 lightCyan  . . . . . . . . . . .	Number	 0000000Bh   
 lightGray  . . . . . . . . . . .	Number	 00000007h   
 lightGreen . . . . . . . . . . .	Number	 0000000Ah   
 lightMagenta . . . . . . . . . .	Number	 0000000Dh   
 lightRed . . . . . . . . . . . .	Number	 0000000Ch   
-mGetBytes  . . . . . . . . . . .	DWord	 00000042 _DATA	
-mGetCount  . . . . . . . . . . .	DWord	 0000003E _DATA	
+mDispInput . . . . . . . . . . .	Byte	 00000045 _DATA	
+mGetBytes  . . . . . . . . . . .	DWord	 00000041 _DATA	
+mGetCount  . . . . . . . . . . .	DWord	 0000003D _DATA	
 mGetInput  . . . . . . . . . . .	Byte	 00000032 _DATA	
 magenta  . . . . . . . . . . . .	Number	 00000005h   
-readOut  . . . . . . . . . . . .	DWord	 00000046 _DATA	
+readOut  . . . . . . . . . . . .	DWord	 00000050 _DATA	
 red  . . . . . . . . . . . . . .	Number	 00000004h   
 white  . . . . . . . . . . . . .	Number	 0000000Fh   
+writeIn  . . . . . . . . . . . .	DWord	 00000054 _DATA	
 wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
 yellow . . . . . . . . . . . . .	Number	 0000000Eh   
 
-	   0 Warnings
-	   1 Errors
+	   2 Warnings
+	   2 Errors

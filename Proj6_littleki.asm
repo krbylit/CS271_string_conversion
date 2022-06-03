@@ -5,8 +5,9 @@ TITLE Project 6     (Proj6_littleki.asm)
 ; OSU email address: littleki@oregonstate.edu
 ; Course number/section: CS271 Section 400
 ; Project Number: 6                 Due Date: 06/05/2022
-; Description: This file is provided as a template from which you may work
-;              when developing assembly projects in CS271.
+; Description: Gets 10 user input numbers as strings, converts these to numerical values, stores them
+; in an array, prints this array by converting them back to strings, calculates the sum and average of
+; the array and prints these values.
 
 INCLUDE Irvine32.inc
 
@@ -32,7 +33,7 @@ INCLUDE Irvine32.inc
 ;
 ; returns: arrayAddr = generated string address
 ; ---------------------------------------------------------------------------------
-mGetString MACRO	inPrompt, inputStr, bytesLen
+mGetString MACRO	inPrompt, inputStr, bytesLen, count
 
 ; called to get one integer at a time for the array
 
@@ -44,7 +45,7 @@ mGetString MACRO	inPrompt, inputStr, bytesLen
 	
 ; ReadString and store to mGetInput
 	mov		edx, inputStr
-	mov		ecx, sizeof inputStr
+	mov		ecx, count
 	call	readstring
 	call	crlf
 
@@ -91,11 +92,14 @@ HI_LIMIT	=	+2147483647
 inputPrompt		byte		"Please enter an integer.",0		; prompt for mGetString input
 errorInvalid	byte		"Your input is not valid.",0		; error message for invalid input
 
-mGetInput		byte		"***********",0						; input storage for mGetString
-mGetCount		sdword		11									; max input string length for mGetString
+mGetInput		byte		11	dup(0)							; input storage for mGetString
+mGetCount		sdword		12									; max input string length for mGetString
 mGetBytes		sdword		?									; number of input bytes read by mGetString
 
+mDispInput		byte		11	dup(0)							; input storage for mDisplayString
+
 readOut			sdword		?									; output storage for ReadVal
+writeIn			sdword		?									; input storage for WriteVal
 
 inputArray		sdword		10	dup(?)							; array for main proc to store mGetString input into
 inputSum		sdword		0									; variable for sum of input numbers
@@ -137,29 +141,60 @@ main PROC
 
 ; TESTING------------------------------------
 
-	mov		eax, offset inputPrompt
-	mov		ebx, offset mGetInput
-	mov		edx, offset mGetBytes
 
-	mGetString	offset inputPrompt, offset mGetInput, offset mGetBytes
+;	call	ReadVal		offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
+
+
+;	call	WriteVal	writeIn, offset mDispInput
+
+;	mov		eax, mGetBytes
+;	call	writedec
+
+;	mov		edx, offset mGetInput
+;	call	writestring
 
 ; ENDT---------------------------------------
 
 
-; loop ReadVal to get 10 user inputs
-	; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
-	; append readOut val to inputArray
+	; loop ReadVal to get 10 user inputs
+	mov		ecx, 10					; loop 10 times for 10 inputs
+	mov		edi, inputArray			; set inputArray as destination address
 
-; display the integers, their sum, and truncated average with WriteVal
+_readLoop:
+		; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
+		call	ReadVal		offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
+
+		; append readOut val to inputArray
+		mov		eax, readOut
+		mov		[edi], eax			; move numerical val to inputArray index
+		add		edi, 4				; increment inputArray index
+	loop	_readLoop
+
+
+
+	; display the integers, their sum, and truncated average with WriteVal
+	mov		esi, inputArray			; set inputArray as source address
+	mov		ecx, 10					; set loop counter to 10 to go through all array elements
+
+_writeLoop:
 	; print inputArray one element at a time with WriteVal
-		; pass element of inputArray to WriteVal, converts to string, printed by mDisplayString
+		; pass element of inputArray to WriteVal through writeIn variable, converts to string, printed by mDisplayString
+		mov		eax, [esi]
+		mov		writeIn, eax
+		call	WriteVal	writeIn, offset mDispInput
 		; increment inputArray indexer
+		add		esi, 4
 		; pass next element of inputArray to WriteVal
+	loop	_writeLoop
+
+
 	; show sum
 		; add inputArray element val to inputSum
 		; increment inputArray indexer
 		; add next element val to inputSum
 		; call WriteVal on inputSum to convert and print with mDisplayString
+
+
 	; show average
 		; div inputSum by 10
 		; figure out rounding
@@ -173,6 +208,8 @@ main ENDP
 
 ; ---------------------------------------------------------------------------------
 ; Name: ReadVal
+;
+;	takes string, outputs integer
 ;
 ;    1) Invoke the mGetString macro (see parameter requirements above) to get user input in the form of a string of digits.
 ;    2) Convert (using string primitives) the string of ascii digits to its numeric value representation (SDWORD), validating
@@ -197,23 +234,54 @@ main ENDP
 ; procedure altered should be described here. Registers should only be mentioned
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
-ReadVal PROC
+ReadVal PROC	inputStr, outputNum, prompt, bytes, count
+	local	numChar:sdword
 
-; get user input from mGetString
+	; get user input from mGetString
 
-; convert string to numbers
+	mGetString	prompt, inputStr, bytes, count
+
+
+	; convert string to numbers
+	mov		outputNum, 0		; clear output variable
+	mov		ecx, [bytes]		; use number of bytes input as loop counter
+	cld							; clear direction flag to have pointer increment
+	mov		esi, inputStr		; move string to convert to esi
+	lodsb						; store character in AL and increment esi
+	cmp		al, 48				; check if char < 48
+	jb		_notNum
+	cmp		al, 57				; check if char > 57
+	ja		_notNum
+	sub		al, 48				; subtract character value to get numerical value
+	movzx	eax, al				; store numeric value
+	mov		numChar, eax
+	mov		eax, [outputNum]	; move output value to eax for mult
+	mov		ebx, 10
+	imul	ebx
+	add		eax, numChar		; add numerical value
+	mov		outputNum, eax		; store final numerical value in outputNum
+
+
 	; handle cases of + or - leading characters
 	; validate no non-digits or +/- lead and not too large for 32-bit register
 		; print error message if not valid
 			; get new input
 		; print error message if no input
 			; get new input
+_notNum:
+
+
+_return:
+	ret
+
+
 ReadVal ENDP
 
 
 ; ---------------------------------------------------------------------------------
 ; Name: WriteVal
 ;
+;	takes integer, outputs string
 ;
 ;    1) Convert a numeric SDWORD value (input parameter, by value) to a string of ASCII digits.
 ;    2) Invoke the mDisplayString macro to print the ASCII representation of the SDWORD value to the output.
@@ -237,13 +305,123 @@ ReadVal ENDP
 ; procedure altered should be described here. Registers should only be mentioned
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
-WriteVal PROC
+WriteVal PROC	numIn, strOut
+	local	asciiVal:sdword, numNeg:sdword
 
-; works on one value at a time
+	; works on one value at a time
 
-; convert SDWORD digits to ASCII
+	; convert SDWORD digits to ASCII
+		; CHANGE THIS TO SET NUMNEG FLAG TO 1 OR 0 AND JUST USE ALL SAME CODE BLOCKS UNTIL END, CHECK FLAG AND DO NEG HANDLING IF 1
+		; if SDWORD is negative
+		cmp		numIn, 0
+		jge		_posNum		; jump to positive integer handling
+			; if SDWORD is greater than -10
+			cmp		numIn, -10
+			jle		_bigNeg		; jump to large negative handling
 
-; pass ASCII string to mDisplayString to print
+			; convert to positive, will add negative ASCII sign last
+			mov		eax, -1
+			mov		ebx, numIn
+			mov		asciiVal, ebx
+			imul	eax, asciiVal
+			mov		asciiVal, eax
+
+			; add SDWORD to 48 for ASCII value
+			add		asciiVal, 48
+			mov		eax, asciiVal
+			mov		strOut, eax
+
+			; pass strOut to mDisplayString to print
+			mDisplayString	strOut
+
+_bigNeg:
+			; convert to positive, will add negative ASCII sign last
+			mov		eax, -1
+			mov		ebx, numIn
+			mov		asciiVal, ebx
+			imul	eax, asciiVal
+			mov		asciiVal, eax
+				; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
+
+					; append digit to output string
+				; if result SDWORD >= 10, div by 10 again, add remainder to 48 for next digit
+					; append digit to output string
+				; repeat until result is < 10, result is first digit
+					; append digit to output string
+			; output string is in reverse order, so it must be reversed
+
+
+
+		; if SDWORD is positive
+_posNum:
+			; if SDWORD is less than 10
+			cmp		numIn, 10
+			jg		_bigPos		; jump to large positive handling
+
+				; add SDWORD to 48 for ASCII value
+				mov		ebx, numIn
+				mov		asciiVal, ebx
+				add		asciiVal, 48
+				mov		esi, offset asciiVal
+				mov		edi, strOut
+				std
+				lodsb
+				stosb
+
+				; pass strOut to mDisplayString to print
+				mDisplayString	strOut
+
+
+			; if SDWORD is 10 or greater
+_bigPos:
+
+				; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
+				mov		eax, numIn
+				cdq
+				mov		ebx, 10
+				idiv	ebx
+				mov		asciiVal, edx		; move remainder to asciiVal
+				add		asciiVal, 48		; add 48 to remainder for ASCII
+
+					; append digit to output string
+					std								; clear flag to work backwards from end of strOut
+					mov		edi, strOut+11			; set destination as end of strOut
+					mov		esi, offset asciiVal
+					lodsb
+					stosb
+						; must use STOSB/LODSB and writechar for this
+				; if result SDWORD >= 10, div by 10 again, add remainder to 48 for next digit
+_divLoopPos:
+				cmp		eax, 10
+				jl		_finish		; if quotient is less than 10, do finish handling 
+				cdq
+				mov		ebx, 10
+				idiv	ebx
+				mov		asciiVal, edx
+				add		asciiVal, 48
+					; append digit to output string
+				mov		esi, offset asciiVal
+				std
+				lodsb
+				stosb
+				; repeat until result is < 10, result is first digit
+			jmp		_divLoopPos
+					; append digit to output string
+			; output string is in reverse order, so it must be reversed
+_finishPos:
+			; append quotient as final digit
+			mov		asciiVal, eax
+			add		asciiVal, 48
+			mov		esi, offset asciiVal
+			std
+			lodsb
+			stosb
+
+	; pass ASCII string to mDisplayString to print
+
+_return:
+	ret
+
 
 WriteVal ENDP
 
