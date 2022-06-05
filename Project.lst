@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
+Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
 "Project 6     (Proj6_littleki.asm			     Page 1 - 1
 
 
@@ -229,7 +229,7 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
  0000004B  68 00000051 R			push	offset mDispInputRev
  00000050  68 00000045 R			push	offset mDispInput
  00000055  FF 35 00000060 R			push	writeIn
- 0000005B  E8 000000B8				call	WriteVal;	writeIn, offset mDispInput
+ 0000005B  E8 000000C1				call	WriteVal;	writeIn, offset mDispInput
 						; increment inputArray indexer
  00000060  83 C6 04				add		esi, 4
 						; pass next element of inputArray to WriteVal
@@ -285,7 +285,7 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
 				; if you are trying to pass data back in them.
 				; ---------------------------------------------------------------------------------
  0000006C			ReadVal PROC	inputStr, outputNum, prompt, bytes, count, errorMsg
-					local	numChar:dword, outputHolder:dword, negFlag:dword
+					local	numChar:dword, outputHolder:dword, negFlagRead:dword
 
  0000006C  55		   *	    push   ebp
  0000006D  8B EC	   *	    mov    ebp, esp
@@ -316,9 +316,9 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
  000000A1			_readLoop:
  000000A1  AC					lodsb						; store character in AL and increment esi
  000000A2  3C 30				cmp		al, 48				; check if char < 48
- 000000A4  72 3A				jb		_notNum
+ 000000A4  72 3C				jb		_notNum
  000000A6  3C 39				cmp		al, 57				; check if char > 57
- 000000A8  77 36				ja		_notNum
+ 000000A8  77 38				ja		_notNum
  000000AA  2C 30				sub		al, 48				; subtract character value to get numerical value
  000000AC  0F B6 C0				movzx	eax, al				; store numeric value
  000000AF  89 45 FC				mov		numChar, eax
@@ -331,15 +331,16 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
  000000C5  89 07				mov		[edi], eax			; store final integer in readOut
  000000C7  E2 D8			loop _readLoop
 
- 000000C9  83 7D F4 00			cmp		negFlag, 0
- 000000CD  74 44			je		_return
+ 000000C9  83 7D F4 00			cmp		negFlagRead, 0
+ 000000CD  74 46			je		_return
 					; multiply by -1 if negative flag was set
  000000CF  BB FFFFFFFF			mov		ebx, -1
- 000000D4  8B 45 0C			mov		eax, outputNum
- 000000D7  F7 EB			imul	ebx
- 000000D9  8B 7D 0C			mov		edi, outputNum
- 000000DC  89 07			mov		[edi], eax
- 000000DE  EB 33			jmp		_return
+ 000000D4  8B 75 0C			mov		esi, outputNum
+ 000000D7  8B 06			mov		eax, [esi]
+ 000000D9  F7 EB			imul	ebx
+ 000000DB  8B 7D 0C			mov		edi, outputNum
+ 000000DE  89 07			mov		[edi], eax
+ 000000E0  EB 33			jmp		_return
 
 					; handle cases of + or - leading characters
 					; validate no non-digits or +/- lead and not too large for 32-bit register
@@ -347,42 +348,45 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
 							; get new input
 						; print error message if no input
 							; get new input
- 000000E0			_notNum:
- 000000E0  3B 4D 14			cmp		ecx, [bytes]
- 000000E3  7C 1C			jl		_invalid
- 000000E5  3C 2D			cmp		al, 45
- 000000E7  74 04			je		_negative
- 000000E9  3C 2B			cmp		al, 43
- 000000EB  74 0A			je		_positive
+ 000000E2			_notNum:
+ 000000E2  3B 4D 14			cmp		ecx, [bytes]
+ 000000E5  7C 1C			jl		_invalid
+ 000000E7  3C 2D			cmp		al, 45
+ 000000E9  74 04			je		_negative
+ 000000EB  3C 2B			cmp		al, 43
+ 000000ED  74 0A			je		_positive
 
- 000000ED			_negative:
- 000000ED  C7 45 F4			mov		negFlag, 1
+ 000000EF			_negative:
+ 000000EF  C7 45 F4			mov		negFlagRead, 1
 	   00000001
- 000000F4  49				dec		ecx
- 000000F5  EB AA			jmp		_readLoop
+ 000000F6  49				dec		ecx
+ 000000F7  EB A8			jmp		_readLoop
 
- 000000F7			_positive:
- 000000F7  C7 45 F4			mov		negFlag, 0
+ 000000F9			_positive:
+ 000000F9  C7 45 F4			mov		negFlagRead, 0
 	   00000000
- 000000FE  49				dec		ecx
- 000000FF  EB A0			jmp		_readLoop
+ 00000100  49				dec		ecx
+ 00000101  EB 9E			jmp		_readLoop
 
- 00000101			_invalid:
- 00000101  8B 55 1C			mov		edx, errorMsg
- 00000104  E8 00000000 E		call	writestring
- 00000109  E8 00000000 E		call	crlf
- 0000010E  E9 FFFFFF60			jmp		_getInput
+ 00000103			_invalid:
+ 00000103  8B 55 1C			mov		edx, errorMsg
+ 00000106  E8 00000000 E		call	writestring
+ 0000010B  E8 00000000 E		call	crlf
+ 00000110  E9 FFFFFF5E			jmp		_getInput
 
- 00000113			_return:
- 00000113  61				popad
+ 00000115			_return:
+
+ 00000115  C7 45 F4			mov		negFlagRead, 0
+	   00000000
+ 0000011C  61				popad
 
 
 					ret
- 00000114  C9		   *	    leave  
- 00000115  C2 0018	   *	    ret    00018h
+ 0000011D  C9		   *	    leave  
+ 0000011E  C2 0018	   *	    ret    00018h
 
 
- 00000118			ReadVal ENDP
+ 00000121			ReadVal ENDP
 
 
 				; ---------------------------------------------------------------------------------
@@ -412,135 +416,133 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
 				; procedure altered should be described here. Registers should only be mentioned
 				; if you are trying to pass data back in them.
 				; ---------------------------------------------------------------------------------
- 00000118			WriteVal PROC	numIn, strOut, strOutRev
+ 00000121			WriteVal PROC	numIn, strOut, strOutRev
 					local	asciiVal:sdword, negFlag:sdword
 
- 00000118  55		   *	    push   ebp
- 00000119  8B EC	   *	    mov    ebp, esp
- 0000011B  83 C4 F8	   *	    add    esp, 0FFFFFFF8h
- 0000011E  60				pushad
+ 00000121  55		   *	    push   ebp
+ 00000122  8B EC	   *	    mov    ebp, esp
+ 00000124  83 C4 F8	   *	    add    esp, 0FFFFFFF8h
+ 00000127  60				pushad
 
 
 					; convert SDWORD digits to ASCII
 					; CHANGE THIS TO SET NUMNEG FLAG TO 1 OR 0 AND JUST USE ALL SAME CODE BLOCKS UNTIL END, CHECK FLAG AND DO NEG HANDLING IF 1
 
 					; setup for processing, working backwards through string
- 0000011F  8B 5D 08			mov		ebx, numIn
- 00000122  89 5D FC			mov		asciiVal, ebx
- 00000125  8B 7D 0C			mov		edi, strOut
- 00000128  83 C7 0B			add		edi, 11
- 0000012B  FD				std
+ 00000128  8B 5D 08			mov		ebx, numIn
+ 0000012B  89 5D FC			mov		asciiVal, ebx
+ 0000012E  8B 7D 0C			mov		edi, strOut
+ 00000131  83 C7 0B			add		edi, 11
+ 00000134  FD				std
 					; cld
- 0000012C  B8 00000000			mov		eax, 0
- 00000131  89 07			mov		[edi], eax	; add null terminating 0 to end of string
- 00000133  4F				dec		edi
+ 00000135  B8 00000000			mov		eax, 0
+ 0000013A  89 07			mov		[edi], eax	; add null terminating 0 to end of string
+ 0000013C  4F				dec		edi
 
 					; check if SDWORD is negative or zero
- 00000134  83 7D FC 00			cmp		asciiVal, 0
- 00000138  7F 19			jg		_posNum		; jump to positive integer handling
- 0000013A  0F 84 00000080		je		_zeroVal	; handling for value of zero input
+ 0000013D  83 7D FC 00			cmp		asciiVal, 0
+ 00000141  7F 19			jg		_posNum		; jump to positive integer handling
+ 00000143  0F 84 00000085		je		_zeroVal	; handling for value of zero input
 
 					; since negative, convert to positive and set negFlag, will add negative ASCII sign last
- 00000140  C7 45 F8			mov		negFlag, 1
+ 00000149  C7 45 F8			mov		negFlag, 1
 	   00000001
- 00000147  B8 FFFFFFFF			mov		eax, -1
- 0000014C  0F AF 45 FC			imul	eax, asciiVal
- 00000150  89 45 FC			mov		asciiVal, eax
+ 00000150  B8 FFFFFFFF			mov		eax, -1
+ 00000155  0F AF 45 FC			imul	eax, asciiVal
+ 00000159  89 45 FC			mov		asciiVal, eax
 
 
 
- 00000153			_posNum:
+ 0000015C			_posNum:
 					; if SDWORD is positive
 					; if SDWORD is less than 10
- 00000153  83 7D FC 0A			cmp		asciiVal, 10
- 00000157  7F 0B			jg		_bigNum		; jump to large number handling
+ 0000015C  83 7D FC 0A			cmp		asciiVal, 10
+ 00000160  7F 10			jg		_bigNum		; jump to large number handling
 
 					; add SDWORD to 48 for ASCII value
- 00000159  83 45 FC 30			add		asciiVal, 48
- 0000015D  8D 75 FC			lea		esi, asciiVal
+ 00000162  8B 45 FC			mov		eax, asciiVal
+ 00000165  EB 45			jmp		_finish
+ 00000167  83 45 FC 30			add		asciiVal, 48
+ 0000016B  8D 75 FC			lea		esi, asciiVal
 					; std
- 00000160  AC				lodsb
- 00000161  AA				stosb
+ 0000016E  AC				lodsb
+ 0000016F  AA				stosb
 
 					; pass strOut to mDisplayString to print
- 00000162  EB 68			jmp		_return
+ 00000170  EB 68			jmp		_return
 
- 00000164			_bigNum:
+ 00000172			_bigNum:
 					; if SDWORD is 10 or greater
 					; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
- 00000164  8B 45 FC			mov		eax, asciiVal
- 00000167  99				cdq
- 00000168  BB 0000000A			mov		ebx, 10
- 0000016D  F7 FB			idiv	ebx
- 0000016F  89 55 FC			mov		asciiVal, edx		; move remainder to asciiVal
- 00000172  83 45 FC 30			add		asciiVal, 48		; add 48 to remainder for ASCII
+ 00000172  8B 45 FC			mov		eax, asciiVal
+ 00000175  99				cdq
+ 00000176  BB 0000000A			mov		ebx, 10
+ 0000017B  F7 FB			idiv	ebx
+ 0000017D  89 55 FC			mov		asciiVal, edx		; move remainder to asciiVal
+ 00000180  83 45 FC 30			add		asciiVal, 48		; add 48 to remainder for ASCII
 
 					; append digit to output string
 					; std								; clear flag to work backwards from end of strOut
 					; mov		edi, strOut+11			; set destination as end of strOut
- 00000176  8D 75 FC			lea		esi, asciiVal
+ 00000184  8D 75 FC			lea		esi, asciiVal
 					;store quotient to restore after loading string byte
- 00000179  8B D8			mov		ebx, eax
- 0000017B  AC				lodsb
- 0000017C  AA				stosb
- 0000017D  8B C3			mov		eax, ebx
+ 00000187  8B D8			mov		ebx, eax
+ 00000189  AC				lodsb
+ 0000018A  AA				stosb
+ 0000018B  8B C3			mov		eax, ebx
 
- 0000017F			_divLoop:
+ 0000018D			_divLoop:
 						; if quotient of div is >= 10, div by 10 again, add remainder to 48 for next digit
 						; div until quotient is 0
- 0000017F  83 F8 0A				cmp		eax, 10
- 00000182  7C 1A				jl		_finish		; if quotient is less than 10, do finish handling 
-						; cmp		eax, 0
-						; je		_finish
- 00000184  99					cdq
- 00000185  BB 0000000A				mov		ebx, 10
- 0000018A  F7 FB				idiv	ebx
- 0000018C  89 55 FC				mov		asciiVal, edx
- 0000018F  83 45 FC 30				add		asciiVal, 48
+ 0000018D  83 F8 0A				cmp		eax, 10
+ 00000190  7C 1A				jl		_finish		; if quotient is less than 10, do finish handling 
+ 00000192  99					cdq
+ 00000193  BB 0000000A				mov		ebx, 10
+ 00000198  F7 FB				idiv	ebx
+ 0000019A  89 55 FC				mov		asciiVal, edx
+ 0000019D  83 45 FC 30				add		asciiVal, 48
 
 						; append digit to output string
- 00000193  8D 75 FC				lea		esi, asciiVal
-						; std
- 00000196  8B D8				mov		ebx, eax
- 00000198  AC					lodsb
- 00000199  AA					stosb
- 0000019A  8B C3				mov		eax, ebx
+ 000001A1  8D 75 FC				lea		esi, asciiVal
+ 000001A4  8B D8				mov		ebx, eax
+ 000001A6  AC					lodsb
+ 000001A7  AA					stosb
+ 000001A8  8B C3				mov		eax, ebx
 						; repeat until quotient is < 10, result is first digit
- 0000019C  EB E1			jmp		_divLoop
+ 000001AA  EB E1			jmp		_divLoop
 									; append digit to output string
 							; output string is in reverse order, so it must be reversed
- 0000019E			_finish:
+ 000001AC			_finish:
 					; append quotient as final digit
- 0000019E  89 45 FC			mov		asciiVal, eax
- 000001A1  83 45 FC 30			add		asciiVal, 48
- 000001A5  8D 75 FC			lea		esi, asciiVal
+ 000001AC  89 45 FC			mov		asciiVal, eax
+ 000001AF  83 45 FC 30			add		asciiVal, 48
+ 000001B3  8D 75 FC			lea		esi, asciiVal
 					; std
- 000001A8  AC				lodsb
- 000001A9  AA				stosb
- 000001AA  83 7D F8 01			cmp		negFlag, 1
- 000001AE  74 02			je		_finishNeg
- 000001B0  EB 1A			jmp		_return
+ 000001B6  AC				lodsb
+ 000001B7  AA				stosb
+ 000001B8  83 7D F8 01			cmp		negFlag, 1
+ 000001BC  74 02			je		_finishNeg
+ 000001BE  EB 1A			jmp		_return
 
- 000001B2			_finishNeg:
+ 000001C0			_finishNeg:
 					; append negative sign if negative flag variable is set
- 000001B2  C7 45 FC			mov		asciiVal, 45
+ 000001C0  C7 45 FC			mov		asciiVal, 45
 	   0000002D
- 000001B9  8D 75 FC			lea		esi, asciiVal
-					; std
- 000001BC  AC				lodsb
- 000001BD  AA				stosb
- 000001BE  EB 0C			jmp		_return
-
- 000001C0			_zeroVal:
- 000001C0  C7 45 FC			mov		asciiVal, 48
-	   00000030
  000001C7  8D 75 FC			lea		esi, asciiVal
-					; mov		edi, strOut
 					; std
  000001CA  AC				lodsb
  000001CB  AA				stosb
+ 000001CC  EB 0C			jmp		_return
 
- 000001CC			_return:
+ 000001CE			_zeroVal:
+ 000001CE  C7 45 FC			mov		asciiVal, 48
+	   00000030
+ 000001D5  8D 75 FC			lea		esi, asciiVal
+
+ 000001D8  AC				lodsb
+ 000001D9  AA				stosb
+
+ 000001DA			_return:
 
 					; pass ASCII string to mDisplayString to print
 					; mDisplayString	strOut
@@ -560,27 +562,28 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
 				   ; stosb
 				 ; LOOP   _revLoop
 
- 000001CC  47				inc		edi
-
+ 000001DA  47				inc		edi
+ 000001DB  C7 45 F8			mov		negFlag, 0
+	   00000000
 					
- 000001CD  8B D7			mov		edx, edi
- 000001CF  E8 00000000 E		call	writestring
- 000001D4  B0 20			mov		al, ' '
- 000001D6  E8 00000000 E		call	writechar
+ 000001E2  8B D7			mov		edx, edi
+ 000001E4  E8 00000000 E		call	writestring
+ 000001E9  B0 20			mov		al, ' '
+ 000001EB  E8 00000000 E		call	writechar
 
- 000001DB  61				popad
+ 000001F0  61				popad
 
 					ret
- 000001DC  C9		   *	    leave  
- 000001DD  C2 000C	   *	    ret    0000Ch
+ 000001F1  C9		   *	    leave  
+ 000001F2  C2 000C	   *	    ret    0000Ch
 
 
- 000001E0			WriteVal ENDP
-Proj6_littleki.asm(515) : warning A6004:procedure argument or local not referenced : strOutRev
+ 000001F5			WriteVal ENDP
+Proj6_littleki.asm(516) : warning A6004:procedure argument or local not referenced : strOutRev
 
 
 				END main
-Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 17:47:07
+Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
 "Project 6     (Proj6_littleki.asm			     Symbols 2 - 1
 
 
@@ -683,7 +686,7 @@ Segments and Groups:
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
 _DATA  . . . . . . . . . . . . .	32 Bit	 00000094 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 000001E0 Para	  Public  'CODE'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000001F5 Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
@@ -753,7 +756,7 @@ ReadInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 ReadKeyFlush . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-ReadVal  . . . . . . . . . . . .	P Near	 0000006C _TEXT	Length= 000000AC Public STDCALL
+ReadVal  . . . . . . . . . . . .	P Near	 0000006C _TEXT	Length= 000000B5 Public STDCALL
   inputStr . . . . . . . . . . .	DWord	 bp + 00000008
   outputNum  . . . . . . . . . .	DWord	 bp + 0000000C
   prompt . . . . . . . . . . . .	DWord	 bp + 00000010
@@ -762,14 +765,14 @@ ReadVal  . . . . . . . . . . . .	P Near	 0000006C _TEXT	Length= 000000AC Public 
   errorMsg . . . . . . . . . . .	DWord	 bp + 0000001C
   numChar  . . . . . . . . . . .	DWord	 bp - 00000004
   outputHolder . . . . . . . . .	DWord	 bp - 00000008
-  negFlag  . . . . . . . . . . .	DWord	 bp - 0000000C
+  negFlagRead  . . . . . . . . .	DWord	 bp - 0000000C
   _getInput  . . . . . . . . . .	L Near	 00000073 _TEXT	
   _readLoop  . . . . . . . . . .	L Near	 000000A1 _TEXT	
-  _notNum  . . . . . . . . . . .	L Near	 000000E0 _TEXT	
-  _negative  . . . . . . . . . .	L Near	 000000ED _TEXT	
-  _positive  . . . . . . . . . .	L Near	 000000F7 _TEXT	
-  _invalid . . . . . . . . . . .	L Near	 00000101 _TEXT	
-  _return  . . . . . . . . . . .	L Near	 00000113 _TEXT	
+  _notNum  . . . . . . . . . . .	L Near	 000000E2 _TEXT	
+  _negative  . . . . . . . . . .	L Near	 000000EF _TEXT	
+  _positive  . . . . . . . . . .	L Near	 000000F9 _TEXT	
+  _invalid . . . . . . . . . . .	L Near	 00000103 _TEXT	
+  _return  . . . . . . . . . . .	L Near	 00000115 _TEXT	
 SetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetConsoleCursorPosition . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -806,19 +809,19 @@ WriteStackFrameName  . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-WriteVal . . . . . . . . . . . .	P Near	 00000118 _TEXT	Length= 000000C8 Public STDCALL
+WriteVal . . . . . . . . . . . .	P Near	 00000121 _TEXT	Length= 000000D4 Public STDCALL
   numIn  . . . . . . . . . . . .	DWord	 bp + 00000008
   strOut . . . . . . . . . . . .	DWord	 bp + 0000000C
   strOutRev  . . . . . . . . . .	DWord	 bp + 00000010
   asciiVal . . . . . . . . . . .	DWord	 bp - 00000004
   negFlag  . . . . . . . . . . .	DWord	 bp - 00000008
-  _posNum  . . . . . . . . . . .	L Near	 00000153 _TEXT	
-  _bigNum  . . . . . . . . . . .	L Near	 00000164 _TEXT	
-  _divLoop . . . . . . . . . . .	L Near	 0000017F _TEXT	
-  _finish  . . . . . . . . . . .	L Near	 0000019E _TEXT	
-  _finishNeg . . . . . . . . . .	L Near	 000001B2 _TEXT	
-  _zeroVal . . . . . . . . . . .	L Near	 000001C0 _TEXT	
-  _return  . . . . . . . . . . .	L Near	 000001CC _TEXT	
+  _posNum  . . . . . . . . . . .	L Near	 0000015C _TEXT	
+  _bigNum  . . . . . . . . . . .	L Near	 00000172 _TEXT	
+  _divLoop . . . . . . . . . . .	L Near	 0000018D _TEXT	
+  _finish  . . . . . . . . . . .	L Near	 000001AC _TEXT	
+  _finishNeg . . . . . . . . . .	L Near	 000001C0 _TEXT	
+  _zeroVal . . . . . . . . . . .	L Near	 000001CE _TEXT	
+  _return  . . . . . . . . . . .	L Near	 000001DA _TEXT	
 WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000006C Public STDCALL
   _readLoop  . . . . . . . . . .	L Near	 0000000A _TEXT	

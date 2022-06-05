@@ -246,7 +246,7 @@ main ENDP
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
 ReadVal PROC	inputStr, outputNum, prompt, bytes, count, errorMsg
-	local	numChar:dword, outputHolder:dword, negFlag:dword
+	local	numChar:dword, outputHolder:dword, negFlagRead:dword
 
 	pushad
 
@@ -280,11 +280,12 @@ _readLoop:
 		mov		[edi], eax			; store final integer in readOut
 	loop _readLoop
 
-	cmp		negFlag, 0
+	cmp		negFlagRead, 0
 	je		_return
 	; multiply by -1 if negative flag was set
 	mov		ebx, -1
-	mov		eax, outputNum
+	mov		esi, outputNum
+	mov		eax, [esi]
 	imul	ebx
 	mov		edi, outputNum
 	mov		[edi], eax
@@ -305,12 +306,12 @@ _notNum:
 	je		_positive
 
 _negative:
-	mov		negFlag, 1
+	mov		negFlagRead, 1
 	dec		ecx
 	jmp		_readLoop
 
 _positive:
-	mov		negFlag, 0
+	mov		negFlagRead, 0
 	dec		ecx
 	jmp		_readLoop
 
@@ -321,6 +322,8 @@ _invalid:
 	jmp		_getInput
 
 _return:
+
+	mov		negFlagRead, 0
 	popad
 
 
@@ -397,6 +400,8 @@ _posNum:
 	jg		_bigNum		; jump to large number handling
 
 	; add SDWORD to 48 for ASCII value
+	mov		eax, asciiVal
+	jmp		_finish
 	add		asciiVal, 48
 	lea		esi, asciiVal
 	; std
@@ -496,7 +501,7 @@ _return:
  ; LOOP   _revLoop
 
 	inc		edi
-
+	mov		negFlag, 0
 	
 	mov		edx, edi
 	call	writestring
