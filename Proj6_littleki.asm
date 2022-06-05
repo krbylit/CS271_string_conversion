@@ -88,22 +88,23 @@ HI_LIMIT	=	+2147483647
 .data
 
 
-inputPrompt		byte		"Please enter an integer.",0		; prompt for mGetString input
-errorInvalid	byte		"Your input is not valid.",0		; error message for invalid input
+inputPrompt		byte		"Please enter an integer.",0								; prompt for mGetString input
+errorInvalid	byte		"Your input is not valid.",0								; error message for invalid input
 
-mGetInput		byte		11	dup(0)							; input storage for mGetString
-mGetCount		sdword		12									; max input string length for mGetString
-mGetBytes		sdword		?									; number of input bytes read by mGetString
+mGetInput		byte		11	dup(0)													; input storage for mGetString
+mGetCount		sdword		12															; max input string length for mGetString
+mGetBytes		sdword		?															; number of input bytes read by mGetString
 
-mDispInput		byte		11	dup(0)							; input storage for mDisplayString
+mDispInput		byte		11	dup(0)													; input storage for mDisplayString
+mDispInputRev	byte		11	dup(0)													; input storage for mDisplayString
 
-readOut			sdword		?									; output storage for ReadVal
-writeIn			sdword		?									; input storage for WriteVal
-asciiValHolder	sdword		?
 
-inputArray		sdword		10	dup(?)							; array for main proc to store mGetString input into
-inputSum		sdword		0									; variable for sum of input numbers
-inputAvg		sdword		?									; variable for the average of input numbers
+readOut			sdword		?															; output storage for ReadVal
+writeIn			sdword		?															; input storage for WriteVal
+
+inputArray		sdword		10	dup(?)													; array for main proc to store mGetString input into
+inputSum		sdword		0															; variable for sum of input numbers
+inputAvg		sdword		?															; variable for the average of input numbers
 
 
 .code
@@ -162,6 +163,7 @@ main PROC
 
 _readLoop:
 		; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
+		push	offset errorInvalid
 		push	mGetCount
 		push	offset mGetBytes
 		push	offset inputPrompt
@@ -187,7 +189,7 @@ _writeLoop:
 		; pass element of inputArray to WriteVal through writeIn variable, converts to string, printed by mDisplayString
 		mov		eax, [esi]
 		mov		writeIn, eax
-		push	offset asciiValHolder
+		push	offset mDispInputRev
 		push	offset mDispInput
 		push	writeIn
 		call	WriteVal;	writeIn, offset mDispInput
@@ -243,14 +245,14 @@ main ENDP
 ; procedure altered should be described here. Registers should only be mentioned
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
-ReadVal PROC	inputStr, outputNum, prompt, bytes, count
-	local	numChar:dword, outputHolder:dword
+ReadVal PROC	inputStr, outputNum, prompt, bytes, count, errorMsg
+	local	numChar:dword, outputHolder:dword, negFlag:dword
 
 	pushad
 
 
 	; get user input from mGetString
-
+_getInput:
 	mGetString	prompt, inputStr, bytes, count
 
 
@@ -273,10 +275,20 @@ _readLoop:
 		mov		ebx, 10
 		imul	ebx
 		add		eax, numChar		; add numerical value
-		mov		outputHolder, eax		; store final numerical value in outputNum
+		mov		outputHolder, eax	; store final numerical value in holder for next processing
 		mov		edi, outputNum
-		mov		[edi], eax
+		mov		[edi], eax			; store final integer in readOut
 	loop _readLoop
+
+	cmp		negFlag, 0
+	je		_return
+	; multiply by -1 if negative flag was set
+	mov		ebx, -1
+	mov		eax, outputNum
+	imul	ebx
+	mov		edi, outputNum
+	mov		[edi], eax
+	jmp		_return
 
 	; handle cases of + or - leading characters
 	; validate no non-digits or +/- lead and not too large for 32-bit register
@@ -285,7 +297,28 @@ _readLoop:
 		; print error message if no input
 			; get new input
 _notNum:
+	cmp		ecx, [bytes]
+	jl		_invalid
+	cmp		al, 45
+	je		_negative
+	cmp		al, 43
+	je		_positive
 
+_negative:
+	mov		negFlag, 1
+	dec		ecx
+	jmp		_readLoop
+
+_positive:
+	mov		negFlag, 0
+	dec		ecx
+	jmp		_readLoop
+
+_invalid:
+	mov		edx, errorMsg
+	call	writestring
+	call	crlf
+	jmp		_getInput
 
 _return:
 	popad
@@ -324,118 +357,142 @@ ReadVal ENDP
 ; procedure altered should be described here. Registers should only be mentioned
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
-WriteVal PROC	numIn, strOut, asciiValAddr
+WriteVal PROC	numIn, strOut, strOutRev
 	local	asciiVal:sdword, negFlag:sdword
 
 	pushad
 
-	; works on one value at a time
 
 	; convert SDWORD digits to ASCII
-		; CHANGE THIS TO SET NUMNEG FLAG TO 1 OR 0 AND JUST USE ALL SAME CODE BLOCKS UNTIL END, CHECK FLAG AND DO NEG HANDLING IF 1
-		; if SDWORD is negative
-		cmp		numIn, 0
-		jg		_posNum		; jump to positive integer handling
-		je		_zeroVal	; handling for value of zero input
+	; CHANGE THIS TO SET NUMNEG FLAG TO 1 OR 0 AND JUST USE ALL SAME CODE BLOCKS UNTIL END, CHECK FLAG AND DO NEG HANDLING IF 1
 
-			; convert to positive and set negFlag, will add negative ASCII sign last
-			mov		negFlag, 1
-			mov		eax, -1
-			mov		ebx, numIn
-			mov		asciiVal, ebx
-			imul	eax, asciiVal
-			mov		asciiVal, eax
+	; setup for processing, working backwards through string
+	mov		ebx, numIn
+	mov		asciiVal, ebx
+	mov		edi, strOut
+	; add		edi, 11
+	; std
+	cld
+
+	; check if SDWORD is negative or zero
+	cmp		asciiVal, 0
+	jg		_posNum		; jump to positive integer handling
+	je		_zeroVal	; handling for value of zero input
+
+	; since negative, convert to positive and set negFlag, will add negative ASCII sign last
+	mov		negFlag, 1
+	mov		eax, -1
+	imul	eax, asciiVal
+	mov		asciiVal, eax
 
 
 
-		; if SDWORD is positive
 _posNum:
-			; if SDWORD is less than 10
-			cmp		numIn, 10
-			jg		_bigNum		; jump to large number handling
+	; if SDWORD is positive
+	; if SDWORD is less than 10
+	cmp		asciiVal, 10
+	jg		_bigNum		; jump to large number handling
 
-				; add SDWORD to 48 for ASCII value
-				mov		ebx, numIn
-				mov		asciiVal, ebx
-				add		asciiVal, 48
-				mov		esi, asciiVal
-				mov		edi, strOut
-				std
-				lodsb
-				stosb
+	; add SDWORD to 48 for ASCII value
+	add		asciiVal, 48
+	lea		esi, asciiVal
+	; std
+	; lodsb
+	stosb
 
-				; pass strOut to mDisplayString to print
-				jmp		_return
+	; pass strOut to mDisplayString to print
+	jmp		_return
 
-			; if SDWORD is 10 or greater
 _bigNum:
+	; if SDWORD is 10 or greater
+	; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
+	mov		eax, asciiVal
+	cdq
+	mov		ebx, 10
+	idiv	ebx
+	mov		asciiVal, edx		; move remainder to asciiVal
+	add		asciiVal, 48		; add 48 to remainder for ASCII
 
-				; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
-				mov		eax, numIn
-				cdq
-				mov		ebx, 10
-				idiv	ebx
-				mov		asciiVal, edx		; move remainder to asciiVal
-				add		asciiVal, 48		; add 48 to remainder for ASCII
+	; append digit to output string
+	; std								; clear flag to work backwards from end of strOut
+	; mov		edi, strOut+11			; set destination as end of strOut
+	mov		esi, asciiVal
+	lodsb
+	stosb
 
-					; append digit to output string
-					std								; clear flag to work backwards from end of strOut
-					mov		edi, strOut+11			; set destination as end of strOut
-					mov		esi, asciiVal
-					lodsb
-					stosb
-						; must use STOSB/LODSB and writechar for this
-				; if result SDWORD >= 10, div by 10 again, add remainder to 48 for next digit
 _divLoop:
-				cmp		eax, 10
-				jl		_finish		; if quotient is less than 10, do finish handling 
-				cdq
-				mov		ebx, 10
-				idiv	ebx
-				mov		asciiVal, edx
-				add		asciiVal, 48
-					; append digit to output string
-				mov		esi, asciiVal
-				std
-				lodsb
-				stosb
-				; repeat until result is < 10, result is first digit
-			jmp		_divLoop
+		; if quotient of div is >= 10, div by 10 again, add remainder to 48 for next digit
+		cmp		eax, 10
+		jl		_finish		; if quotient is less than 10, do finish handling 
+		cdq
+		mov		ebx, 10
+		idiv	ebx
+		mov		asciiVal, edx
+		add		asciiVal, 48
+
+		; append digit to output string
+		mov		esi, asciiVal
+		; std
+		lodsb
+		stosb
+		; repeat until quotient is < 10, result is first digit
+	jmp		_divLoop
 					; append digit to output string
 			; output string is in reverse order, so it must be reversed
 _finish:
-			; append quotient as final digit
-			mov		asciiVal, eax
-			add		asciiVal, 48
-			mov		esi, asciiVal
-			std
-			lodsb
-			stosb
-			cmp		negFlag, 1
-			je		_finishNeg
-			jmp		_return
+	; append quotient as final digit
+	mov		asciiVal, eax
+	add		asciiVal, 48
+	mov		esi, asciiVal
+	; std
+	lodsb
+	stosb
+	cmp		negFlag, 1
+	je		_finishNeg
+	jmp		_return
 
 _finishNeg:
-			; append negative sign if negative flag variable is set
-			mov		asciiVal, 45
-			mov		esi, asciiVal
-			std
-			lodsb
-			stosb
-			jmp		_return
+	; append negative sign if negative flag variable is set
+	mov		asciiVal, 45
+	mov		esi, asciiVal
+	; std
+	lodsb
+	stosb
+	jmp		_return
 
 _zeroVal:
 	mov		asciiVal, 48
 	mov		esi, asciiVal
-	mov		edi, strOut
-	std
+	; mov		edi, strOut
+	; std
 	lodsb
 	stosb
 
 _return:
 
 	; pass ASCII string to mDisplayString to print
-	mDisplayString	strOut
+	; mDisplayString	strOut
+
+	 ; Reverse the string
+  mov    ecx, 11
+  lea    esi, strOut
+  add    esi, ecx
+  dec    esi
+  mov    edi, strOutRev
+  
+  ;   Reverse string
+_revLoop:
+    std
+    lodsb
+    cld
+    stosb
+  LOOP   _revLoop
+
+	
+	mov		edx, strOut
+	call	writestring
+	mov		al, ' '
+	call	writechar
 
 	popad
 
