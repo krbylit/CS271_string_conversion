@@ -95,7 +95,7 @@ mGetInput		byte		11	dup(0)													; input storage for mGetString
 mGetCount		sdword		12															; max input string length for mGetString
 mGetBytes		sdword		?															; number of input bytes read by mGetString
 
-mDispInput		byte		11	dup(0)													; input storage for mDisplayString
+mDispInput		byte		12	dup(?)													; input storage for mDisplayString
 mDispInputRev	byte		11	dup(0)													; input storage for mDisplayString
 
 
@@ -370,9 +370,12 @@ WriteVal PROC	numIn, strOut, strOutRev
 	mov		ebx, numIn
 	mov		asciiVal, ebx
 	mov		edi, strOut
-	; add		edi, 11
-	; std
-	cld
+	add		edi, 11
+	std
+	; cld
+	mov		eax, 0
+	mov		[edi], eax	; add null terminating 0 to end of string
+	dec		edi
 
 	; check if SDWORD is negative or zero
 	cmp		asciiVal, 0
@@ -397,7 +400,7 @@ _posNum:
 	add		asciiVal, 48
 	lea		esi, asciiVal
 	; std
-	; lodsb
+	lodsb
 	stosb
 
 	; pass strOut to mDisplayString to print
@@ -416,12 +419,16 @@ _bigNum:
 	; append digit to output string
 	; std								; clear flag to work backwards from end of strOut
 	; mov		edi, strOut+11			; set destination as end of strOut
-	mov		esi, asciiVal
+	lea		esi, asciiVal
+	;store quotient to restore after loading string byte
+	mov		ebx, eax
 	lodsb
 	stosb
+	mov		eax, ebx
 
 _divLoop:
 		; if quotient of div is >= 10, div by 10 again, add remainder to 48 for next digit
+		; div until quotient is 0
 		cmp		eax, 10
 		jl		_finish		; if quotient is less than 10, do finish handling 
 		cdq
@@ -431,10 +438,11 @@ _divLoop:
 		add		asciiVal, 48
 
 		; append digit to output string
-		mov		esi, asciiVal
-		; std
+		lea		esi, asciiVal
+		mov		ebx, eax
 		lodsb
 		stosb
+		mov		eax, ebx
 		; repeat until quotient is < 10, result is first digit
 	jmp		_divLoop
 					; append digit to output string
@@ -443,7 +451,7 @@ _finish:
 	; append quotient as final digit
 	mov		asciiVal, eax
 	add		asciiVal, 48
-	mov		esi, asciiVal
+	lea		esi, asciiVal
 	; std
 	lodsb
 	stosb
@@ -454,7 +462,7 @@ _finish:
 _finishNeg:
 	; append negative sign if negative flag variable is set
 	mov		asciiVal, 45
-	mov		esi, asciiVal
+	lea		esi, asciiVal
 	; std
 	lodsb
 	stosb
@@ -462,9 +470,8 @@ _finishNeg:
 
 _zeroVal:
 	mov		asciiVal, 48
-	mov		esi, asciiVal
-	; mov		edi, strOut
-	; std
+	lea		esi, asciiVal
+
 	lodsb
 	stosb
 
@@ -474,22 +481,24 @@ _return:
 	; mDisplayString	strOut
 
 	 ; Reverse the string
-  mov    ecx, 11
-  lea    esi, strOut
-  add    esi, ecx
-  dec    esi
-  mov    edi, strOutRev
+  ; mov    ecx, 11
+  ; lea    esi, strOut
+  ; add    esi, ecx
+  ; dec    esi
+  ; mov    edi, strOutRev
   
   ;   Reverse string
-_revLoop:
-    std
-    lodsb
-    cld
-    stosb
-  LOOP   _revLoop
+; _revLoop:
+  ;   std
+    ; lodsb
+   ; cld
+   ; stosb
+ ; LOOP   _revLoop
+
+	inc		edi
 
 	
-	mov		edx, strOut
+	mov		edx, edi
 	call	writestring
 	mov		al, ' '
 	call	writechar
