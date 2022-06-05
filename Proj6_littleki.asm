@@ -87,7 +87,6 @@ HI_LIMIT	=	+2147483647
 
 .data
 
-; (insert variable definitions here)
 
 inputPrompt		byte		"Please enter an integer.",0		; prompt for mGetString input
 errorInvalid	byte		"Your input is not valid.",0		; error message for invalid input
@@ -100,6 +99,7 @@ mDispInput		byte		11	dup(0)							; input storage for mDisplayString
 
 readOut			sdword		?									; output storage for ReadVal
 writeIn			sdword		?									; input storage for WriteVal
+asciiValHolder	sdword		?
 
 inputArray		sdword		10	dup(?)							; array for main proc to store mGetString input into
 inputSum		sdword		0									; variable for sum of input numbers
@@ -158,22 +158,28 @@ main PROC
 
 	; loop ReadVal to get 10 user inputs
 	mov		ecx, 10					; loop 10 times for 10 inputs
-	mov		edi, inputArray			; set inputArray as destination address
+	mov		edi, offset inputArray			; set inputArray as destination address
 
 _readLoop:
 		; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
-		call	ReadVal		offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
+		push	mGetCount
+		push	offset mGetBytes
+		push	offset inputPrompt
+		push	offset readOut
+		push	offset mGetInput
+		; return value stored in eax
+		call	ReadVal	;	offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
 
 		; append readOut val to inputArray
-		mov		eax, readOut
+		mov		eax, [readOut]
 		mov		[edi], eax			; move numerical val to inputArray index
 		add		edi, 4				; increment inputArray index
 	loop	_readLoop
 
 
 
-	; display the integers, their sum, and truncated average with WriteVal
-	mov		esi, inputArray			; set inputArray as source address
+	; Setup to display the integers, their sum, and truncated average with WriteVal
+	mov		esi, offset inputArray			; set inputArray as source address
 	mov		ecx, 10					; set loop counter to 10 to go through all array elements
 
 _writeLoop:
@@ -181,7 +187,10 @@ _writeLoop:
 		; pass element of inputArray to WriteVal through writeIn variable, converts to string, printed by mDisplayString
 		mov		eax, [esi]
 		mov		writeIn, eax
-		call	WriteVal	writeIn, offset mDispInput
+		push	offset asciiValHolder
+		push	offset mDispInput
+		push	writeIn
+		call	WriteVal;	writeIn, offset mDispInput
 		; increment inputArray indexer
 		add		esi, 4
 		; pass next element of inputArray to WriteVal
@@ -235,7 +244,10 @@ main ENDP
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
 ReadVal PROC	inputStr, outputNum, prompt, bytes, count
-	local	numChar:sdword
+	local	numChar:dword, outputHolder:dword
+
+	pushad
+
 
 	; get user input from mGetString
 
@@ -243,24 +255,28 @@ ReadVal PROC	inputStr, outputNum, prompt, bytes, count
 
 
 	; convert string to numbers
-	mov		outputNum, 0		; clear output variable
+	mov		[outputHolder], 0		; clear output variable
 	mov		ecx, [bytes]		; use number of bytes input as loop counter
 	cld							; clear direction flag to have pointer increment
 	mov		esi, inputStr		; move string to convert to esi
-	lodsb						; store character in AL and increment esi
-	cmp		al, 48				; check if char < 48
-	jb		_notNum
-	cmp		al, 57				; check if char > 57
-	ja		_notNum
-	sub		al, 48				; subtract character value to get numerical value
-	movzx	eax, al				; store numeric value
-	mov		numChar, eax
-	mov		eax, [outputNum]	; move output value to eax for mult
-	mov		ebx, 10
-	imul	ebx
-	add		eax, numChar		; add numerical value
-	mov		outputNum, eax		; store final numerical value in outputNum
 
+_readLoop:
+		lodsb						; store character in AL and increment esi
+		cmp		al, 48				; check if char < 48
+		jb		_notNum
+		cmp		al, 57				; check if char > 57
+		ja		_notNum
+		sub		al, 48				; subtract character value to get numerical value
+		movzx	eax, al				; store numeric value
+		mov		numChar, eax
+		mov		eax, [outputHolder]	; move output value to eax for mult
+		mov		ebx, 10
+		imul	ebx
+		add		eax, numChar		; add numerical value
+		mov		outputHolder, eax		; store final numerical value in outputNum
+		mov		edi, outputNum
+		mov		[edi], eax
+	loop _readLoop
 
 	; handle cases of + or - leading characters
 	; validate no non-digits or +/- lead and not too large for 32-bit register
@@ -272,6 +288,9 @@ _notNum:
 
 
 _return:
+	popad
+
+
 	ret
 
 
@@ -305,8 +324,10 @@ ReadVal ENDP
 ; procedure altered should be described here. Registers should only be mentioned
 ; if you are trying to pass data back in them.
 ; ---------------------------------------------------------------------------------
-WriteVal PROC	numIn, strOut
+WriteVal PROC	numIn, strOut, asciiValAddr
 	local	asciiVal:sdword, negFlag:sdword
+
+	pushad
 
 	; works on one value at a time
 
@@ -394,8 +415,8 @@ _finish:
 			je		_finishNeg
 			jmp		_return
 
-			; append negative sign if negative flag variable is set
 _finishNeg:
+			; append negative sign if negative flag variable is set
 			mov		asciiVal, 45
 			mov		esi, asciiVal
 			std
@@ -415,6 +436,8 @@ _return:
 
 	; pass ASCII string to mDisplayString to print
 	mDisplayString	strOut
+
+	popad
 
 	ret
 
