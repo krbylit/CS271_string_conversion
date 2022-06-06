@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
+Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 23:09:21
 "Project 6     (Proj6_littleki.asm			     Page 1 - 1
 
 
@@ -39,24 +39,26 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
 
 				; ---------------------------------------------------------------------------------
 				; Name: mGetString
-				; 
-				; mGetString:  Display a prompt (input parameter, by reference), then get the user’s keyboard input 
-				; into a memory location (output parameter, by reference). You may also need to provide a count 
-				; (input parameter, by value) for the length of input string you can accommodate and a provide a 
-				; number of bytes read (output parameter, by reference) by the macro.
 				;
-				; Preconditions: do not use eax, ecx, esi as arguments
+				; Displays a prompt for user to enter an integer. Then reads the string and stores it
+				; in inputStr.
+				;
+				; Preconditions: None
 				;
 				; Receives:
-				; arrayAddr = array address
-				; arrayType = array type
-				; arraySize = array length
+				; inPrompt = message for prompting input
+				; inputStr = buffer for input string and output
+				; bytesLen = counter for number of bytes entered
+				; count = max length of string for readstring procedure
 				;
-				; returns: arrayAddr = generated string address
+				; Returns: 
+				; bytesLen = counter for number of bytes entered
+				; inputStr = user entered string
 				; ---------------------------------------------------------------------------------
 				mGetString MACRO	inPrompt, inputStr, bytesLen, count
 
-				; called to get one integer at a time for the array
+					push	edx
+					push	ecx
 
 				; prompt
 					mov		edx, inPrompt
@@ -73,6 +75,9 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
 				; store number of bytes read to mGetBytes
 					mov		[bytesLen], eax
 
+					pop		ecx
+					pop		edx
+
 
 				ENDM
 
@@ -80,30 +85,30 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
 				; ---------------------------------------------------------------------------------
 				; Name: mDisplayString
 				;
-				; mDisplayString:  Print the string which is stored in a specified memory location 
-				; (input parameter, by reference).
+				; Prints the input string, followed by a space.
 				;
-				; Preconditions: do not use eax, ecx, esi as arguments
+				; Preconditions: None
 				;
 				; Receives:
-				; arrayAddr = array address
-				; arrayType = array type
-				; arraySize = array length
+				; inputStr = string to be written
 				;
-				; returns: arrayAddr = generated string address
+				; returns: None
 				; ---------------------------------------------------------------------------------
 				mDisplayString MACRO	inputStr
 
+					push	edx
+					push	eax
+
+					; print the string, followed by a space
 					mov		edx, inputStr
 					call	writestring
 					mov		al, ' '
 					call	writechar
 
-				ENDM
+					pop		eax
+					pop		edx
 
-				; constants
- =-80000000			LO_LIMIT	=	-2147483648
- = 7FFFFFFF			HI_LIMIT	=	+2147483647
+				ENDM
 
 
  00000000			.data
@@ -119,471 +124,429 @@ Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
 	   20 69 73 20 6E
 	   6F 74 20 76 61
 	   6C 69 64 2E 00
+ 00000032 53 75 6D 3A 20	sumTitle		byte		"Sum: ",0													; title text for sum of array
+	   00
+ 00000038 41 76 65 72 61	avgTitle		byte		"Average: ",0												; title text for average of array
+	   67 65 3A 20 00
+ 00000042 4E 75 6D 62 65	arrayTitle		byte		"Numbers entered: ",0										; title text for array of numbers entered
+	   72 73 20 65 6E
+	   74 65 72 65 64
+	   3A 20 00
 
- 00000032  0000000B [		mGetInput		byte		11	dup(0)													; input storage for mGetString
+ 00000054  0000000C [		mGetInput		byte		12	dup(0)													; input storage for mGetString
 	    00
 	   ]
- 0000003D 0000000C		mGetCount		sdword		12															; max input string length for mGetString
- 00000041 00000000		mGetBytes		sdword		?															; number of input bytes read by mGetString
+ 00000060 0000000C		mGetCount		sdword		12															; max input string length for mGetString
+ 00000064 00000000		mGetBytes		sdword		?															; number of input bytes read by mGetString
 
- 00000045  0000000C [		mDispInput		byte		12	dup(?)													; input storage for mDisplayString
-	    00
-	   ]
- 00000051  0000000B [		mDispInputRev	byte		11	dup(0)													; input storage for mDisplayString
+ 00000068  0000000C [		mDispInput		byte		12	dup(?)													; input storage for mDisplayString
 	    00
 	   ]
 
+ 00000074 00000000		readOut			sdword		?															; output storage for ReadVal
+ 00000078 00000000		writeIn			sdword		?															; input storage for WriteVal
 
- 0000005C 00000000		readOut			sdword		?															; output storage for ReadVal
- 00000060 00000000		writeIn			sdword		?															; input storage for WriteVal
-
- 00000064  0000000A [		inputArray		sdword		10	dup(?)													; array for main proc to store mGetString input into
+ 0000007C  0000000A [		inputArray		sdword		10	dup(?)													; array for main proc to store mGetString input into
 	    00000000
 	   ]
- 0000008C 00000000		inputSum		sdword		0															; variable for sum of input numbers
- 00000090 00000000		inputAvg		sdword		?															; variable for the average of input numbers
+ 000000A4 00000000		inputSum		sdword		0															; variable for sum of input numbers
+ 000000A8 00000000		inputAvg		sdword		?															; variable for the average of input numbers
+ 000000AC 00000000		avgDivRem		sdword		?															; holder for remainder during average calculation
 
 
  00000000			.code
 				; ---------------------------------------------------------------------------------
 				; Name: main
 				;
-				; Write a test program (in main) which uses the ReadVal and WriteVal procedures above to:
+				; Gets 10 valid integers from user input by calling ReadVal. Stores these values in an array.
+				; Then displays the integers, their sum, and the truncated average of them with WriteVal.
 				;
-				;    1) Get 10 valid integers from the user. Your ReadVal will be called within the loop in main. Do not put your counted loop within ReadVal.
-				;    2) Stores these numeric values in an array.
-				;    3) Display the integers, their sum, and their truncated average.
+				; Preconditions: None
 				;
-				; Your ReadVal will be called within the loop in main. Do not put your counted loop within ReadVal.
+				; Postconditions: None
 				;
-				; Preconditions: Preconditions are conditions that need to be true for the
-				; procedure to work, like the type of the input provided or the state a
-				; certain register need to be in.
+				; Receives: registers used: ecx, edi, eax, esi, edx, ebx
+				; inputArray = array for storing user input integers
+				; errorInvalid = error message for invalid entries
+				; mGetCount = max input string length for mGetString
+				; mGetBytes = counter for number of bytes entered with mGetString macro
+				; inputPrompt = prompt message for user input for mGetString macro
+				; readOut = output of ReadVal proc
+				; mGetInput = input/output for mGetString macro
+				; arrayTitle = title for displaying array numbers with WriteVal proc
+				; writeIn = input integer for WriteVal conversion to string
+				; mDispInput = input string for mDisplayString macro
+				; sumTitle = title for displaying sum of values with WriteVal
+				; inputSum = input for WriteVal to display sum
+				; avgTitle = title for displaying average of inputs with WriteVal
+				; inputAvg = input for WriteVal to display average
 				;
-				; Postconditions: Postconditions are any changes the procedure makes that are not
-				; part of the returns. If any registers are changed and not restored, they
-				; should be described here.
-				;
-				; Receives: Receives is like the input of a procedure; it describes everything
-				; the procedure is given to work. Parameters, registers, and global variables
-				; the procedure takes as inputs should be described here.
-				;
-				; Returns: Returns is the output of the procedure. Because assembly procedures don’t
-				; return data like high-level languages, returns should describe all the data
-				; the procedure intended to change. Parameters and global variables that the
-				; procedure altered should be described here. Registers should only be mentioned
-				; if you are trying to pass data back in them.
+				; Returns: None
 				; ---------------------------------------------------------------------------------
  00000000			main PROC
-
-
-				; TESTING------------------------------------
-
-
-				;	call	ReadVal		offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
-
-
-				;	call	WriteVal	writeIn, offset mDispInput
-
-				;	mov		eax, mGetBytes
-				;	call	writedec
-
-				;	mov		edx, offset mGetInput
-				;	call	writestring
-
-				; ENDT---------------------------------------
-
-
-					; loop ReadVal to get 10 user inputs
- 00000000  B9 0000000A			mov		ecx, 10					; loop 10 times for 10 inputs
- 00000005  BF 00000064 R		mov		edi, offset inputArray			; set inputArray as destination address
+					; setup for ReadVal to get 10 values from user
+ 00000000  B9 0000000A			mov		ecx, 10							; loop 10 times for 10 inputs
+ 00000005  BF 0000007C R		mov		edi, offset inputArray			; set inputArray as destination address
 
  0000000A			_readLoop:
-						; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
+						; call ReadVal 10 times to store values in the array
  0000000A  68 00000019 R			push	offset errorInvalid
- 0000000F  FF 35 0000003D R			push	mGetCount
- 00000015  68 00000041 R			push	offset mGetBytes
+ 0000000F  FF 35 00000060 R			push	mGetCount
+ 00000015  68 00000064 R			push	offset mGetBytes
  0000001A  68 00000000 R			push	offset inputPrompt
- 0000001F  68 0000005C R			push	offset readOut
- 00000024  68 00000032 R			push	offset mGetInput
-						; return value stored in eax
- 00000029  E8 0000003E				call	ReadVal	;	offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
+ 0000001F  68 00000074 R			push	offset readOut
+ 00000024  68 00000054 R			push	offset mGetInput
+ 00000029  E8 000000AF				call	ReadVal
 
 						; append readOut val to inputArray
- 0000002E  A1 0000005C R			mov		eax, [readOut]
+ 0000002E  A1 00000074 R			mov		eax, [readOut]
  00000033  89 07				mov		[edi], eax			; move numerical val to inputArray index
  00000035  83 C7 04				add		edi, 4				; increment inputArray index
  00000038  E2 D0			loop	_readLoop
 
+					; Setup to display the integers with WriteVal
+ 0000003A  BE 0000007C R		mov		esi, offset inputArray			; set inputArray as source address
+ 0000003F  B9 0000000A			mov		ecx, 10							; set loop counter to 10 to go through all array elements
+ 00000044  BA 00000042 R		mov		edx, offset arrayTitle
+ 00000049  E8 00000000 E		call	writestring
 
-
-					; Setup to display the integers, their sum, and truncated average with WriteVal
- 0000003A  BE 00000064 R		mov		esi, offset inputArray			; set inputArray as source address
- 0000003F  B9 0000000A			mov		ecx, 10					; set loop counter to 10 to go through all array elements
-
- 00000044			_writeLoop:
+ 0000004E			_writeLoop:
 					; print inputArray one element at a time with WriteVal
 						; pass element of inputArray to WriteVal through writeIn variable, converts to string, printed by mDisplayString
- 00000044  8B 06				mov		eax, [esi]
- 00000046  A3 00000060 R			mov		writeIn, eax
- 0000004B  68 00000051 R			push	offset mDispInputRev
- 00000050  68 00000045 R			push	offset mDispInput
- 00000055  FF 35 00000060 R			push	writeIn
- 0000005B  E8 000000C1				call	WriteVal;	writeIn, offset mDispInput
-						; increment inputArray indexer
- 00000060  83 C6 04				add		esi, 4
+ 0000004E  8B 06				mov		eax, [esi]
+ 00000050  A3 00000078 R			mov		writeIn, eax
+ 00000055  68 00000068 R			push	offset mDispInput
+ 0000005A  FF 35 00000078 R			push	writeIn
+ 00000060  E8 00000135				call	WriteVal
+ 00000065  83 C6 04				add		esi, 4		; increment inputArray indexer
 						; pass next element of inputArray to WriteVal
- 00000063  E2 DF			loop	_writeLoop
+ 00000068  E2 E4			loop	_writeLoop
 
+ 0000006A  E8 00000000 E		call	crlf
 
-					; show sum
-						; add inputArray element val to inputSum
-						; increment inputArray indexer
-						; add next element val to inputSum
-						; call WriteVal on inputSum to convert and print with mDisplayString
+					; show sum setup and title display
+ 0000006F  BE 0000007C R		mov		esi, offset inputArray
+ 00000074  B9 0000000A			mov		ecx, 10
+ 00000079  BA 00000032 R		mov		edx, offset sumTitle
+ 0000007E  E8 00000000 E		call	writestring
 
+ 00000083			_sumLoop:
+ 00000083  8B 06				mov		eax, [esi]
+ 00000085  01 05 000000A4 R			add		inputSum, eax		; add inputArray element val to inputSum
+ 0000008B  83 C6 04				add		esi, 4				; increment inputArray indexer
+ 0000008E  E2 F3			loop _sumLoop					; add next element val to inputSum
 
-					; show average
-						; div inputSum by 10
-						; figure out rounding
-						; store rounded average to inputAvg
-						; call WriteVal on inputAvg to convert and print with mDisplayString
+					; call WriteVal on inputSum to convert and print with mDisplayString
+ 00000090  68 00000068 R		push	offset mDispInput
+ 00000095  FF 35 000000A4 R		push	inputSum
+ 0000009B  E8 000000FA			call	WriteVal
+ 000000A0  E8 00000000 E		call	crlf
 
+					; display average title
+ 000000A5  BA 00000038 R		mov		edx, offset avgTitle
+ 000000AA  E8 00000000 E		call	writestring
 
-					Invoke ExitProcess,0	; exit to operating system
- 00000065  6A 00	   *	    push   +000000000h
- 00000067  E8 00000000 E   *	    call   ExitProcess
- 0000006C			main ENDP
+					; calculate average of the 10 values
+ 000000AF  A1 000000A4 R		mov		eax, inputSum
+ 000000B4  BB 0000000A			mov		ebx, 10
+ 000000B9  99				cdq
+ 000000BA  F7 FB			idiv	ebx
+ 000000BC  A3 000000A8 R		mov		inputAvg, eax
+					
+					; call WriteVal on inputAvg to convert and print with mDisplayString
+ 000000C1  68 00000068 R		push	offset mDispInput
+ 000000C6  FF 35 000000A8 R		push	inputAvg
+ 000000CC  E8 000000C9			call	WriteVal
+
+ 000000D1  E8 00000000 E		call	crlf
+
+					Invoke ExitProcess,0	
+ 000000D6  6A 00	   *	    push   +000000000h
+ 000000D8  E8 00000000 E   *	    call   ExitProcess
+ 000000DD			main ENDP
 
 
 				; ---------------------------------------------------------------------------------
 				; Name: ReadVal
 				;
-				;	takes string, outputs integer
+				; Takes a string of number/s as input and converts it to an integer value. Gets input with
+				; mGetString macro. Validates that the input has no other characters than a leading
+				; + or - and that the number does not exceed SDWORD size. Stores converted number in 
+				; outputNum for later storing into the array.
 				;
-				;    1) Invoke the mGetString macro (see parameter requirements above) to get user input in the form of a string of digits.
-				;    2) Convert (using string primitives) the string of ascii digits to its numeric value representation (SDWORD), validating
-				;    the user’s input is a valid number (no letters, symbols, etc).
-				;    3) Store this one value in a memory variable (output parameter, by reference). 
+				; Preconditions: errorInvalid, mGetBytes, inputPrompt, readOut, and mGetInput
+				; must be passed by reference. mGetCount must be passed by value.
 				;
-				; Preconditions: Preconditions are conditions that need to be true for the
-				; procedure to work, like the type of the input provided or the state a
-				; certain register need to be in.
+				; Postconditions: Local variables numChar and outputHolder are not reset at the end.
 				;
-				; Postconditions: Postconditions are any changes the procedure makes that are not
-				; part of the returns. If any registers are changed and not restored, they
-				; should be described here.
+				; Receives: registers used(all preserved): ecx, esi, eax, ebx, edi, edx
+				; errorInvalid = by reference, error message for invalid input
+				; mGetCount = by value, count input for mGetString macro
+				; mGetBytes = input/output for byte count of input string for mGetString macro
+				; inputPrompt = prompt message for getting input with mGetString
+				; readOut = output for integer value once converted from string
+				; mGetInput = input/output string for mGetString macro
 				;
-				; Receives: Receives is like the input of a procedure; it describes everything
-				; the procedure is given to work. Parameters, registers, and global variables
-				; the procedure takes as inputs should be described here.
-				;
-				; Returns: Returns is the output of the procedure. Because assembly procedures don’t
-				; return data like high-level languages, returns should describe all the data
-				; the procedure intended to change. Parameters and global variables that the
-				; procedure altered should be described here. Registers should only be mentioned
-				; if you are trying to pass data back in them.
+				; Returns: 
+				; mGetInput = input/output string for mGetString macro
+				; readOut = value set to integer value of the converted string
 				; ---------------------------------------------------------------------------------
- 0000006C			ReadVal PROC	inputStr, outputNum, prompt, bytes, count, errorMsg
-					local	numChar:dword, outputHolder:dword, negFlagRead:dword
+ 000000DD			ReadVal PROC	inputStr, outputNum, prompt, bytes, count, errorMsg
+					local	numChar:dword, outputHolder:sdword, negFlagRead:dword
 
- 0000006C  55		   *	    push   ebp
- 0000006D  8B EC	   *	    mov    ebp, esp
- 0000006F  83 C4 F4	   *	    add    esp, 0FFFFFFF4h
- 00000072  60				pushad
+ 000000DD  55		   *	    push   ebp
+ 000000DE  8B EC	   *	    mov    ebp, esp
+ 000000E0  83 C4 F4	   *	    add    esp, 0FFFFFFF4h
+ 000000E3  60				pushad
 
-
-					; get user input from mGetString
- 00000073			_getInput:
+ 000000E4			_getInput:
 					mGetString	prompt, inputStr, bytes, count
- 00000073  8B 55 10	     1		mov		edx, prompt
- 00000076  E8 00000000 E     1		call	writestring
- 0000007B  E8 00000000 E     1		call	crlf
- 00000080  8B 55 08	     1		mov		edx, inputStr
- 00000083  8B 4D 18	     1		mov		ecx, count
- 00000086  E8 00000000 E     1		call	readstring
- 0000008B  E8 00000000 E     1		call	crlf
- 00000090  89 45 14	     1		mov		[bytes], eax
+ 000000E4  52		     1		push	edx
+ 000000E5  51		     1		push	ecx
+ 000000E6  8B 55 10	     1		mov		edx, prompt
+ 000000E9  E8 00000000 E     1		call	writestring
+ 000000EE  E8 00000000 E     1		call	crlf
+ 000000F3  8B 55 08	     1		mov		edx, inputStr
+ 000000F6  8B 4D 18	     1		mov		ecx, count
+ 000000F9  E8 00000000 E     1		call	readstring
+ 000000FE  E8 00000000 E     1		call	crlf
+ 00000103  89 45 14	     1		mov		[bytes], eax
+ 00000106  59		     1		pop		ecx
+ 00000107  5A		     1		pop		edx
 
-
-					; convert string to numbers
- 00000093  C7 45 F8			mov		[outputHolder], 0		; clear output variable
+ 00000108  C7 45 F8			mov		[outputHolder], 0		; clear output variable
 	   00000000
- 0000009A  8B 4D 14			mov		ecx, [bytes]		; use number of bytes input as loop counter
- 0000009D  FC				cld							; clear direction flag to have pointer increment
- 0000009E  8B 75 08			mov		esi, inputStr		; move string to convert to esi
+ 0000010F  8B 4D 14			mov		ecx, [bytes]			; use number of bytes input as loop counter
+ 00000112  FC				cld								; clear direction flag to have pointer increment
+ 00000113  8B 75 08			mov		esi, inputStr			; move string-to-convert address to esi
 
- 000000A1			_readLoop:
- 000000A1  AC					lodsb						; store character in AL and increment esi
- 000000A2  3C 30				cmp		al, 48				; check if char < 48
- 000000A4  72 3C				jb		_notNum
- 000000A6  3C 39				cmp		al, 57				; check if char > 57
- 000000A8  77 38				ja		_notNum
- 000000AA  2C 30				sub		al, 48				; subtract character value to get numerical value
- 000000AC  0F B6 C0				movzx	eax, al				; store numeric value
- 000000AF  89 45 FC				mov		numChar, eax
- 000000B2  8B 45 F8				mov		eax, [outputHolder]	; move output value to eax for mult
- 000000B5  BB 0000000A				mov		ebx, 10
- 000000BA  F7 EB				imul	ebx
- 000000BC  03 45 FC				add		eax, numChar		; add numerical value
- 000000BF  89 45 F8				mov		outputHolder, eax	; store final numerical value in holder for next processing
- 000000C2  8B 7D 0C				mov		edi, outputNum
- 000000C5  89 07				mov		[edi], eax			; store final integer in readOut
- 000000C7  E2 D8			loop _readLoop
+ 00000116			_readLoop:
+ 00000116  AC					lodsb						; store character in AL and increment esi
+ 00000117  3C 30				cmp		al, 48				; check if char < 48
+ 00000119  72 40				jb		_notNum
+ 0000011B  3C 39				cmp		al, 57				; check if char > 57
+ 0000011D  77 3C				ja		_notNum
+ 0000011F  2C 30				sub		al, 48				; subtract character value to get numeric value
+ 00000121  0F B6 C0				movzx	eax, al				; store numeric value
+ 00000124  89 45 FC				mov		numChar, eax
+ 00000127  8B 45 F8				mov		eax, [outputHolder]	; move output value to eax for mult
+ 0000012A  BB 0000000A				mov		ebx, 10
+ 0000012F  F7 EB				imul	ebx
+ 00000131  70 49				jo		_invalid
+ 00000133  03 45 FC				add		eax, numChar		; add numerical value
+ 00000136  70 44				jo		_invalid
+ 00000138  89 45 F8				mov		outputHolder, eax	; store final numerical value in holder for next processing
+ 0000013B  8B 7D 0C				mov		edi, outputNum
+ 0000013E  89 07				mov		[edi], eax			; store final integer in readOut
+ 00000140  E2 D4			loop _readLoop
 
- 000000C9  83 7D F4 00			cmp		negFlagRead, 0
- 000000CD  74 46			je		_return
+ 00000142  83 7D F4 00			cmp		negFlagRead, 0
+ 00000146  74 46			je		_return					; check if negative value, go to return statement if positive
+
 					; multiply by -1 if negative flag was set
- 000000CF  BB FFFFFFFF			mov		ebx, -1
- 000000D4  8B 75 0C			mov		esi, outputNum
- 000000D7  8B 06			mov		eax, [esi]
- 000000D9  F7 EB			imul	ebx
- 000000DB  8B 7D 0C			mov		edi, outputNum
- 000000DE  89 07			mov		[edi], eax
- 000000E0  EB 33			jmp		_return
+ 00000148  BB FFFFFFFF			mov		ebx, -1
+ 0000014D  8B 75 0C			mov		esi, outputNum
+ 00000150  8B 06			mov		eax, [esi]
+ 00000152  F7 EB			imul	ebx
+ 00000154  8B 7D 0C			mov		edi, outputNum
+ 00000157  89 07			mov		[edi], eax
+ 00000159  EB 33			jmp		_return
 
-					; handle cases of + or - leading characters
-					; validate no non-digits or +/- lead and not too large for 32-bit register
-						; print error message if not valid
-							; get new input
-						; print error message if no input
-							; get new input
- 000000E2			_notNum:
- 000000E2  3B 4D 14			cmp		ecx, [bytes]
- 000000E5  7C 1C			jl		_invalid
- 000000E7  3C 2D			cmp		al, 45
- 000000E9  74 04			je		_negative
- 000000EB  3C 2B			cmp		al, 43
- 000000ED  74 0A			je		_positive
+ 0000015B			_notNum:
+					; if non-number character is first character, check if it is +/- indicator, otherwise it's invalid
+ 0000015B  3B 4D 14			cmp		ecx, [bytes]
+ 0000015E  7C 1C			jl		_invalid
+ 00000160  3C 2D			cmp		al, 45
+ 00000162  74 04			je		_negative
+ 00000164  3C 2B			cmp		al, 43
+ 00000166  74 0A			je		_positive
 
- 000000EF			_negative:
- 000000EF  C7 45 F4			mov		negFlagRead, 1
+ 00000168			_negative:
+					; if negative, set flag and proceed to next character
+ 00000168  C7 45 F4			mov		negFlagRead, 1
 	   00000001
- 000000F6  49				dec		ecx
- 000000F7  EB A8			jmp		_readLoop
+ 0000016F  49				dec		ecx
+ 00000170  EB A4			jmp		_readLoop
 
- 000000F9			_positive:
- 000000F9  C7 45 F4			mov		negFlagRead, 0
+ 00000172			_positive:
+					; if positive, clear flag and proceed to next character
+ 00000172  C7 45 F4			mov		negFlagRead, 0
 	   00000000
- 00000100  49				dec		ecx
- 00000101  EB 9E			jmp		_readLoop
+ 00000179  49				dec		ecx
+ 0000017A  EB 9A			jmp		_readLoop
 
- 00000103			_invalid:
- 00000103  8B 55 1C			mov		edx, errorMsg
- 00000106  E8 00000000 E		call	writestring
- 0000010B  E8 00000000 E		call	crlf
- 00000110  E9 FFFFFF5E			jmp		_getInput
+ 0000017C			_invalid:
+					; if invalid, display error message and get input again
+ 0000017C  8B 55 1C			mov		edx, errorMsg
+ 0000017F  E8 00000000 E		call	writestring
+ 00000184  E8 00000000 E		call	crlf
+ 00000189  E9 FFFFFF56			jmp		_getInput
 
- 00000115			_return:
-
- 00000115  C7 45 F4			mov		negFlagRead, 0
+ 0000018E			_return:
+ 0000018E  C7 45 F4			mov		negFlagRead, 0
 	   00000000
- 0000011C  61				popad
 
+ 00000195  61				popad
 
 					ret
- 0000011D  C9		   *	    leave  
- 0000011E  C2 0018	   *	    ret    00018h
+ 00000196  C9		   *	    leave  
+ 00000197  C2 0018	   *	    ret    00018h
 
 
- 00000121			ReadVal ENDP
+ 0000019A			ReadVal ENDP
 
 
 				; ---------------------------------------------------------------------------------
 				; Name: WriteVal
 				;
-				;	takes integer, outputs string
+				; Takes a numeric SDWORD value and converts it to a string of character numbers. 
+				; Displays the string with mDisplayString macro.
 				;
-				;    1) Convert a numeric SDWORD value (input parameter, by value) to a string of ASCII digits.
-				;    2) Invoke the mDisplayString macro to print the ASCII representation of the SDWORD value to the output.
+				; Preconditions: mDispInput must be passed by reference. writeIn must be passed
+				; by value. 
+				; 
+				; Postconditions: Local variable asciiVal is not reset at the end.
 				;
+				; Receives: registers used(all preserved): ebx, edi, eax, esi, edx
+				; mDispInput = input/output for mDisplayString
+				; writeIn = input numeric value to be converted to ASCII
 				;
-				; Preconditions: Preconditions are conditions that need to be true for the
-				; procedure to work, like the type of the input provided or the state a
-				; certain register need to be in.
-				;
-				; Postconditions: Postconditions are any changes the procedure makes that are not
-				; part of the returns. If any registers are changed and not restored, they
-				; should be described here.
-				;
-				; Receives: Receives is like the input of a procedure; it describes everything
-				; the procedure is given to work. Parameters, registers, and global variables
-				; the procedure takes as inputs should be described here.
-				;
-				; Returns: Returns is the output of the procedure. Because assembly procedures don’t
-				; return data like high-level languages, returns should describe all the data
-				; the procedure intended to change. Parameters and global variables that the
-				; procedure altered should be described here. Registers should only be mentioned
-				; if you are trying to pass data back in them.
+				; Returns: mDispInput is altered to store the ASCII converted integer for printing.
 				; ---------------------------------------------------------------------------------
- 00000121			WriteVal PROC	numIn, strOut, strOutRev
+ 0000019A			WriteVal PROC	numIn, strOut
 					local	asciiVal:sdword, negFlag:sdword
 
- 00000121  55		   *	    push   ebp
- 00000122  8B EC	   *	    mov    ebp, esp
- 00000124  83 C4 F8	   *	    add    esp, 0FFFFFFF8h
- 00000127  60				pushad
-
-
-					; convert SDWORD digits to ASCII
-					; CHANGE THIS TO SET NUMNEG FLAG TO 1 OR 0 AND JUST USE ALL SAME CODE BLOCKS UNTIL END, CHECK FLAG AND DO NEG HANDLING IF 1
+ 0000019A  55		   *	    push   ebp
+ 0000019B  8B EC	   *	    mov    ebp, esp
+ 0000019D  83 C4 F8	   *	    add    esp, 0FFFFFFF8h
+ 000001A0  60				pushad
 
 					; setup for processing, working backwards through string
- 00000128  8B 5D 08			mov		ebx, numIn
- 0000012B  89 5D FC			mov		asciiVal, ebx
- 0000012E  8B 7D 0C			mov		edi, strOut
- 00000131  83 C7 0B			add		edi, 11
- 00000134  FD				std
-					; cld
- 00000135  B8 00000000			mov		eax, 0
- 0000013A  89 07			mov		[edi], eax	; add null terminating 0 to end of string
- 0000013C  4F				dec		edi
+ 000001A1  8B 5D 08			mov		ebx, numIn
+ 000001A4  89 5D FC			mov		asciiVal, ebx		; asciiVal will hold value of each string character to be written to the string
+ 000001A7  8B 7D 0C			mov		edi, strOut
+ 000001AA  83 C7 0B			add		edi, 11
+ 000001AD  FD				std
+ 000001AE  B8 00000000			mov		eax, 0
+ 000001B3  89 07			mov		[edi], eax			; add null terminating 0 to end of string
+ 000001B5  4F				dec		edi
 
-					; check if SDWORD is negative or zero
- 0000013D  83 7D FC 00			cmp		asciiVal, 0
- 00000141  7F 19			jg		_posNum		; jump to positive integer handling
- 00000143  0F 84 00000085		je		_zeroVal	; handling for value of zero input
+					; check if input is negative or zero
+ 000001B6  83 7D FC 00			cmp		asciiVal, 0
+ 000001BA  7F 19			jg		_posNum				; jump to positive integer handling if positive
+ 000001BC  0F 84 00000085		je		_zeroVal			; jump to handling for value of zero input if zero
 
 					; since negative, convert to positive and set negFlag, will add negative ASCII sign last
- 00000149  C7 45 F8			mov		negFlag, 1
+ 000001C2  C7 45 F8			mov		negFlag, 1
 	   00000001
- 00000150  B8 FFFFFFFF			mov		eax, -1
- 00000155  0F AF 45 FC			imul	eax, asciiVal
- 00000159  89 45 FC			mov		asciiVal, eax
+ 000001C9  B8 FFFFFFFF			mov		eax, -1
+ 000001CE  0F AF 45 FC			imul	eax, asciiVal
+ 000001D2  89 45 FC			mov		asciiVal, eax
 
+ 000001D5			_posNum:
+ 000001D5  83 7D FC 0A			cmp		asciiVal, 10
+ 000001D9  7D 10			jge		_bigNum				; jump to large number handling if input is >= 10
 
+					; add input to 48 for ASCII value
+ 000001DB  8B 45 FC			mov		eax, asciiVal
+ 000001DE  EB 45			jmp		_finish
+ 000001E0  83 45 FC 30			add		asciiVal, 48
+ 000001E4  8D 75 FC			lea		esi, asciiVal
+ 000001E7  AC				lodsb
+ 000001E8  AA				stosb
 
- 0000015C			_posNum:
-					; if SDWORD is positive
-					; if SDWORD is less than 10
- 0000015C  83 7D FC 0A			cmp		asciiVal, 10
- 00000160  7F 10			jg		_bigNum		; jump to large number handling
+ 000001E9  EB 68			jmp		_return				; pass strOut to mDisplayString to print since it is a single digit number
 
-					; add SDWORD to 48 for ASCII value
- 00000162  8B 45 FC			mov		eax, asciiVal
- 00000165  EB 45			jmp		_finish
- 00000167  83 45 FC 30			add		asciiVal, 48
- 0000016B  8D 75 FC			lea		esi, asciiVal
-					; std
- 0000016E  AC				lodsb
- 0000016F  AA				stosb
-
-					; pass strOut to mDisplayString to print
- 00000170  EB 68			jmp		_return
-
- 00000172			_bigNum:
-					; if SDWORD is 10 or greater
-					; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
- 00000172  8B 45 FC			mov		eax, asciiVal
- 00000175  99				cdq
- 00000176  BB 0000000A			mov		ebx, 10
- 0000017B  F7 FB			idiv	ebx
- 0000017D  89 55 FC			mov		asciiVal, edx		; move remainder to asciiVal
- 00000180  83 45 FC 30			add		asciiVal, 48		; add 48 to remainder for ASCII
+ 000001EB			_bigNum:
+					; if input is 10 or greater, div input by 10, add remainder to 48 (ASCII 0) for last digit
+ 000001EB  8B 45 FC			mov		eax, asciiVal
+ 000001EE  99				cdq
+ 000001EF  BB 0000000A			mov		ebx, 10
+ 000001F4  F7 FB			idiv	ebx
+ 000001F6  89 55 FC			mov		asciiVal, edx		; move remainder to asciiVal
+ 000001F9  83 45 FC 30			add		asciiVal, 48		; add 48 to remainder for ASCII value
 
 					; append digit to output string
-					; std								; clear flag to work backwards from end of strOut
-					; mov		edi, strOut+11			; set destination as end of strOut
- 00000184  8D 75 FC			lea		esi, asciiVal
-					;store quotient to restore after loading string byte
- 00000187  8B D8			mov		ebx, eax
- 00000189  AC				lodsb
- 0000018A  AA				stosb
- 0000018B  8B C3			mov		eax, ebx
+ 000001FD  8D 75 FC			lea		esi, asciiVal
+ 00000200  8B D8			mov		ebx, eax			;store quotient to restore after loading string byte
+ 00000202  AC				lodsb
+ 00000203  AA				stosb
+ 00000204  8B C3			mov		eax, ebx
 
- 0000018D			_divLoop:
-						; if quotient of div is >= 10, div by 10 again, add remainder to 48 for next digit
-						; div until quotient is 0
- 0000018D  83 F8 0A				cmp		eax, 10
- 00000190  7C 1A				jl		_finish		; if quotient is less than 10, do finish handling 
- 00000192  99					cdq
- 00000193  BB 0000000A				mov		ebx, 10
- 00000198  F7 FB				idiv	ebx
- 0000019A  89 55 FC				mov		asciiVal, edx
- 0000019D  83 45 FC 30				add		asciiVal, 48
+ 00000206			_divLoop:
+						; divide quotient by 10 until it is < 10, adding remainders to the string
+ 00000206  83 F8 0A				cmp		eax, 10			; if quotient of div is >= 10, div by 10 until <10, add remainder to 48 for next digit
+ 00000209  7C 1A				jl		_finish			; if quotient is less than 10, do finish handling 
+ 0000020B  99					cdq
+ 0000020C  BB 0000000A				mov		ebx, 10
+ 00000211  F7 FB				idiv	ebx
+ 00000213  89 55 FC				mov		asciiVal, edx
+ 00000216  83 45 FC 30				add		asciiVal, 48
 
 						; append digit to output string
- 000001A1  8D 75 FC				lea		esi, asciiVal
- 000001A4  8B D8				mov		ebx, eax
- 000001A6  AC					lodsb
- 000001A7  AA					stosb
- 000001A8  8B C3				mov		eax, ebx
-						; repeat until quotient is < 10, result is first digit
- 000001AA  EB E1			jmp		_divLoop
-									; append digit to output string
-							; output string is in reverse order, so it must be reversed
- 000001AC			_finish:
+ 0000021A  8D 75 FC				lea		esi, asciiVal
+ 0000021D  8B D8				mov		ebx, eax
+ 0000021F  AC					lodsb
+ 00000220  AA					stosb
+ 00000221  8B C3				mov		eax, ebx
+
+ 00000223  EB E1			jmp		_divLoop			; repeat until quotient is < 10, result is first digit
+
+ 00000225			_finish:
 					; append quotient as final digit
- 000001AC  89 45 FC			mov		asciiVal, eax
- 000001AF  83 45 FC 30			add		asciiVal, 48
- 000001B3  8D 75 FC			lea		esi, asciiVal
-					; std
- 000001B6  AC				lodsb
- 000001B7  AA				stosb
- 000001B8  83 7D F8 01			cmp		negFlag, 1
- 000001BC  74 02			je		_finishNeg
- 000001BE  EB 1A			jmp		_return
+ 00000225  89 45 FC			mov		asciiVal, eax
+ 00000228  83 45 FC 30			add		asciiVal, 48
+ 0000022C  8D 75 FC			lea		esi, asciiVal
+ 0000022F  AC				lodsb
+ 00000230  AA				stosb
+ 00000231  83 7D F8 01			cmp		negFlag, 1			; check if negative for negative finishing
+ 00000235  74 02			je		_finishNeg
+ 00000237  EB 1A			jmp		_return
 
- 000001C0			_finishNeg:
+ 00000239			_finishNeg:
 					; append negative sign if negative flag variable is set
- 000001C0  C7 45 FC			mov		asciiVal, 45
+ 00000239  C7 45 FC			mov		asciiVal, 45
 	   0000002D
- 000001C7  8D 75 FC			lea		esi, asciiVal
-					; std
- 000001CA  AC				lodsb
- 000001CB  AA				stosb
- 000001CC  EB 0C			jmp		_return
+ 00000240  8D 75 FC			lea		esi, asciiVal
+ 00000243  AC				lodsb
+ 00000244  AA				stosb
+ 00000245  EB 0C			jmp		_return
 
- 000001CE			_zeroVal:
- 000001CE  C7 45 FC			mov		asciiVal, 48
+ 00000247			_zeroVal:
+ 00000247  C7 45 FC			mov		asciiVal, 48
 	   00000030
- 000001D5  8D 75 FC			lea		esi, asciiVal
+ 0000024E  8D 75 FC			lea		esi, asciiVal
+ 00000251  AC				lodsb
+ 00000252  AA				stosb
 
- 000001D8  AC				lodsb
- 000001D9  AA				stosb
-
- 000001DA			_return:
-
-					; pass ASCII string to mDisplayString to print
-					; mDisplayString	strOut
-
-					 ; Reverse the string
-				  ; mov    ecx, 11
-				  ; lea    esi, strOut
-				  ; add    esi, ecx
-				  ; dec    esi
-				  ; mov    edi, strOutRev
-				  
-				  ;   Reverse string
-				; _revLoop:
-				  ;   std
-				    ; lodsb
-				   ; cld
-				   ; stosb
-				 ; LOOP   _revLoop
-
- 000001DA  47				inc		edi
- 000001DB  C7 45 F8			mov		negFlag, 0
+ 00000253			_return:
+ 00000253  47				inc		edi					; inc edi to get to beginning of string since stosb dec'd
+ 00000254  C7 45 F8			mov		negFlag, 0		
 	   00000000
+ 0000025B  89 7D 0C			mov		strOut, edi			; use beginning of string as strOut address to pass to macro
 					
- 000001E2  8B D7			mov		edx, edi
- 000001E4  E8 00000000 E		call	writestring
- 000001E9  B0 20			mov		al, ' '
- 000001EB  E8 00000000 E		call	writechar
+					mDisplayString	strOut		; pass ASCII string to mDisplayString to print
+ 0000025E  52		     1		push	edx
+ 0000025F  50		     1		push	eax
+ 00000260  8B 55 0C	     1		mov		edx, strOut
+ 00000263  E8 00000000 E     1		call	writestring
+ 00000268  B0 20	     1		mov		al, ' '
+ 0000026A  E8 00000000 E     1		call	writechar
+ 0000026F  58		     1		pop		eax
+ 00000270  5A		     1		pop		edx
 
- 000001F0  61				popad
+ 00000271  61				popad
 
 					ret
- 000001F1  C9		   *	    leave  
- 000001F2  C2 000C	   *	    ret    0000Ch
+ 00000272  C9		   *	    leave  
+ 00000273  C2 0008	   *	    ret    00008h
 
 
- 000001F5			WriteVal ENDP
-Proj6_littleki.asm(516) : warning A6004:procedure argument or local not referenced : strOutRev
+ 00000276			WriteVal ENDP
 
 
 				END main
-Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 18:17:21
+Microsoft (R) Macro Assembler Version 14.31.31105.0	    06/05/22 23:09:21
 "Project 6     (Proj6_littleki.asm			     Symbols 2 - 1
 
 
@@ -685,8 +648,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 00000094 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 000001F5 Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 000000B0 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000276 Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
@@ -756,7 +719,7 @@ ReadInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 ReadKeyFlush . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-ReadVal  . . . . . . . . . . . .	P Near	 0000006C _TEXT	Length= 000000B5 Public STDCALL
+ReadVal  . . . . . . . . . . . .	P Near	 000000DD _TEXT	Length= 000000BD Public STDCALL
   inputStr . . . . . . . . . . .	DWord	 bp + 00000008
   outputNum  . . . . . . . . . .	DWord	 bp + 0000000C
   prompt . . . . . . . . . . . .	DWord	 bp + 00000010
@@ -766,13 +729,13 @@ ReadVal  . . . . . . . . . . . .	P Near	 0000006C _TEXT	Length= 000000B5 Public 
   numChar  . . . . . . . . . . .	DWord	 bp - 00000004
   outputHolder . . . . . . . . .	DWord	 bp - 00000008
   negFlagRead  . . . . . . . . .	DWord	 bp - 0000000C
-  _getInput  . . . . . . . . . .	L Near	 00000073 _TEXT	
-  _readLoop  . . . . . . . . . .	L Near	 000000A1 _TEXT	
-  _notNum  . . . . . . . . . . .	L Near	 000000E2 _TEXT	
-  _negative  . . . . . . . . . .	L Near	 000000EF _TEXT	
-  _positive  . . . . . . . . . .	L Near	 000000F9 _TEXT	
-  _invalid . . . . . . . . . . .	L Near	 00000103 _TEXT	
-  _return  . . . . . . . . . . .	L Near	 00000115 _TEXT	
+  _getInput  . . . . . . . . . .	L Near	 000000E4 _TEXT	
+  _readLoop  . . . . . . . . . .	L Near	 00000116 _TEXT	
+  _notNum  . . . . . . . . . . .	L Near	 0000015B _TEXT	
+  _negative  . . . . . . . . . .	L Near	 00000168 _TEXT	
+  _positive  . . . . . . . . . .	L Near	 00000172 _TEXT	
+  _invalid . . . . . . . . . . .	L Near	 0000017C _TEXT	
+  _return  . . . . . . . . . . .	L Near	 0000018E _TEXT	
 SetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetConsoleCursorPosition . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -809,23 +772,23 @@ WriteStackFrameName  . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-WriteVal . . . . . . . . . . . .	P Near	 00000121 _TEXT	Length= 000000D4 Public STDCALL
+WriteVal . . . . . . . . . . . .	P Near	 0000019A _TEXT	Length= 000000DC Public STDCALL
   numIn  . . . . . . . . . . . .	DWord	 bp + 00000008
   strOut . . . . . . . . . . . .	DWord	 bp + 0000000C
-  strOutRev  . . . . . . . . . .	DWord	 bp + 00000010
   asciiVal . . . . . . . . . . .	DWord	 bp - 00000004
   negFlag  . . . . . . . . . . .	DWord	 bp - 00000008
-  _posNum  . . . . . . . . . . .	L Near	 0000015C _TEXT	
-  _bigNum  . . . . . . . . . . .	L Near	 00000172 _TEXT	
-  _divLoop . . . . . . . . . . .	L Near	 0000018D _TEXT	
-  _finish  . . . . . . . . . . .	L Near	 000001AC _TEXT	
-  _finishNeg . . . . . . . . . .	L Near	 000001C0 _TEXT	
-  _zeroVal . . . . . . . . . . .	L Near	 000001CE _TEXT	
-  _return  . . . . . . . . . . .	L Near	 000001DA _TEXT	
+  _posNum  . . . . . . . . . . .	L Near	 000001D5 _TEXT	
+  _bigNum  . . . . . . . . . . .	L Near	 000001EB _TEXT	
+  _divLoop . . . . . . . . . . .	L Near	 00000206 _TEXT	
+  _finish  . . . . . . . . . . .	L Near	 00000225 _TEXT	
+  _finishNeg . . . . . . . . . .	L Near	 00000239 _TEXT	
+  _zeroVal . . . . . . . . . . .	L Near	 00000247 _TEXT	
+  _return  . . . . . . . . . . .	L Near	 00000253 _TEXT	
 WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000006C Public STDCALL
+main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 000000DD Public STDCALL
   _readLoop  . . . . . . . . . .	L Near	 0000000A _TEXT	
-  _writeLoop . . . . . . . . . .	L Near	 00000044 _TEXT	
+  _writeLoop . . . . . . . . . .	L Near	 0000004E _TEXT	
+  _sumLoop . . . . . . . . . . .	L Near	 00000083 _TEXT	
 printf . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 scanf  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 wsprintfA  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
@@ -899,7 +862,6 @@ HEAP_GROWABLE  . . . . . . . . .	Number	 00000002h
 HEAP_NO_SERIALIZE  . . . . . . .	Number	 00000001h   
 HEAP_REALLOC_IN_PLACE_ONLY . . .	Number	 00000010h   
 HEAP_ZERO_MEMORY . . . . . . . .	Number	 00000008h   
-HI_LIMIT . . . . . . . . . . . .	Number	 7FFFFFFFh   
 IDABORT  . . . . . . . . . . . .	Number	 00000003h   
 IDCANCEL . . . . . . . . . . . .	Number	 00000002h   
 IDCLOSE  . . . . . . . . . . . .	Number	 00000008h   
@@ -918,7 +880,6 @@ KEY_EVENT  . . . . . . . . . . .	Number	 00000001h
 KEY_MASKS  . . . . . . . . . . .	Number	 0000001Fh   
 LEFT_ALT_PRESSED . . . . . . . .	Number	 00000002h   
 LEFT_CTRL_PRESSED  . . . . . . .	Number	 00000008h   
-LO_LIMIT . . . . . . . . . . . .	Number	 -80000000h   
 MB_ABORTRETRYIGNORE  . . . . . .	Number	 00000002h   
 MB_APPLMODAL . . . . . . . . . .	Number	 00000000h   
 MB_CANCELTRYCONTINUE . . . . . .	Number	 00000006h   
@@ -1046,6 +1007,9 @@ VK_UP  . . . . . . . . . . . . .	Number	 00000026h
 WINDOW_BUFFER_SIZE_EVENT . . . .	Number	 00000004h   
 WriteConsoleOutputCharacter  . .	Text   	 WriteConsoleOutputCharacterA
 WriteConsole . . . . . . . . . .	Text   	 WriteConsoleA
+arrayTitle . . . . . . . . . . .	Byte	 00000042 _DATA	
+avgDivRem  . . . . . . . . . . .	DWord	 000000AC _DATA	
+avgTitle . . . . . . . . . . . .	Byte	 00000038 _DATA	
 black  . . . . . . . . . . . . .	Number	 00000000h   
 blue . . . . . . . . . . . . . .	Number	 00000001h   
 brown  . . . . . . . . . . . . .	Number	 00000006h   
@@ -1054,28 +1018,28 @@ errorInvalid . . . . . . . . . .	Byte	 00000019 _DATA
 exit . . . . . . . . . . . . . .	Text   	 INVOKE ExitProcess,0
 gray . . . . . . . . . . . . . .	Number	 00000008h   
 green  . . . . . . . . . . . . .	Number	 00000002h   
-inputArray . . . . . . . . . . .	DWord	 00000064 _DATA	
-inputAvg . . . . . . . . . . . .	DWord	 00000090 _DATA	
+inputArray . . . . . . . . . . .	DWord	 0000007C _DATA	
+inputAvg . . . . . . . . . . . .	DWord	 000000A8 _DATA	
 inputPrompt  . . . . . . . . . .	Byte	 00000000 _DATA	
-inputSum . . . . . . . . . . . .	DWord	 0000008C _DATA	
+inputSum . . . . . . . . . . . .	DWord	 000000A4 _DATA	
 lightBlue  . . . . . . . . . . .	Number	 00000009h   
 lightCyan  . . . . . . . . . . .	Number	 0000000Bh   
 lightGray  . . . . . . . . . . .	Number	 00000007h   
 lightGreen . . . . . . . . . . .	Number	 0000000Ah   
 lightMagenta . . . . . . . . . .	Number	 0000000Dh   
 lightRed . . . . . . . . . . . .	Number	 0000000Ch   
-mDispInputRev  . . . . . . . . .	Byte	 00000051 _DATA	
-mDispInput . . . . . . . . . . .	Byte	 00000045 _DATA	
-mGetBytes  . . . . . . . . . . .	DWord	 00000041 _DATA	
-mGetCount  . . . . . . . . . . .	DWord	 0000003D _DATA	
-mGetInput  . . . . . . . . . . .	Byte	 00000032 _DATA	
+mDispInput . . . . . . . . . . .	Byte	 00000068 _DATA	
+mGetBytes  . . . . . . . . . . .	DWord	 00000064 _DATA	
+mGetCount  . . . . . . . . . . .	DWord	 00000060 _DATA	
+mGetInput  . . . . . . . . . . .	Byte	 00000054 _DATA	
 magenta  . . . . . . . . . . . .	Number	 00000005h   
-readOut  . . . . . . . . . . . .	DWord	 0000005C _DATA	
+readOut  . . . . . . . . . . . .	DWord	 00000074 _DATA	
 red  . . . . . . . . . . . . . .	Number	 00000004h   
+sumTitle . . . . . . . . . . . .	Byte	 00000032 _DATA	
 white  . . . . . . . . . . . . .	Number	 0000000Fh   
-writeIn  . . . . . . . . . . . .	DWord	 00000060 _DATA	
+writeIn  . . . . . . . . . . . .	DWord	 00000078 _DATA	
 wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
 yellow . . . . . . . . . . . . .	Number	 0000000Eh   
 
-	   1 Warnings
+	   0 Warnings
 	   0 Errors

@@ -18,24 +18,26 @@ INCLUDE Irvine32.inc
 
 ; ---------------------------------------------------------------------------------
 ; Name: mGetString
-; 
-; mGetString:  Display a prompt (input parameter, by reference), then get the user’s keyboard input 
-; into a memory location (output parameter, by reference). You may also need to provide a count 
-; (input parameter, by value) for the length of input string you can accommodate and a provide a 
-; number of bytes read (output parameter, by reference) by the macro.
 ;
-; Preconditions: do not use eax, ecx, esi as arguments
+; Displays a prompt for user to enter an integer. Then reads the string and stores it
+; in inputStr.
+;
+; Preconditions: None
 ;
 ; Receives:
-; arrayAddr = array address
-; arrayType = array type
-; arraySize = array length
+; inPrompt = message for prompting input
+; inputStr = buffer for input string and output
+; bytesLen = counter for number of bytes entered
+; count = max length of string for readstring procedure
 ;
-; returns: arrayAddr = generated string address
+; Returns: 
+; bytesLen = counter for number of bytes entered
+; inputStr = user entered string
 ; ---------------------------------------------------------------------------------
 mGetString MACRO	inPrompt, inputStr, bytesLen, count
 
-; called to get one integer at a time for the array
+	push	edx
+	push	ecx
 
 ; prompt
 	mov		edx, inPrompt
@@ -52,6 +54,9 @@ mGetString MACRO	inPrompt, inputStr, bytesLen, count
 ; store number of bytes read to mGetBytes
 	mov		[bytesLen], eax
 
+	pop		ecx
+	pop		edx
+
 
 ENDM
 
@@ -59,30 +64,30 @@ ENDM
 ; ---------------------------------------------------------------------------------
 ; Name: mDisplayString
 ;
-; mDisplayString:  Print the string which is stored in a specified memory location 
-; (input parameter, by reference).
+; Prints the input string, followed by a space.
 ;
-; Preconditions: do not use eax, ecx, esi as arguments
+; Preconditions: None
 ;
 ; Receives:
-; arrayAddr = array address
-; arrayType = array type
-; arraySize = array length
+; inputStr = string to be written
 ;
-; returns: arrayAddr = generated string address
+; returns: None
 ; ---------------------------------------------------------------------------------
 mDisplayString MACRO	inputStr
 
+	push	edx
+	push	eax
+
+	; print the string, followed by a space
 	mov		edx, inputStr
 	call	writestring
 	mov		al, ' '
 	call	writechar
 
-ENDM
+	pop		eax
+	pop		edx
 
-; constants
-LO_LIMIT	=	-2147483648
-HI_LIMIT	=	+2147483647
+ENDM
 
 
 .data
@@ -90,14 +95,15 @@ HI_LIMIT	=	+2147483647
 
 inputPrompt		byte		"Please enter an integer.",0								; prompt for mGetString input
 errorInvalid	byte		"Your input is not valid.",0								; error message for invalid input
+sumTitle		byte		"Sum: ",0													; title text for sum of array
+avgTitle		byte		"Average: ",0												; title text for average of array
+arrayTitle		byte		"Numbers entered: ",0										; title text for array of numbers entered
 
-mGetInput		byte		11	dup(0)													; input storage for mGetString
+mGetInput		byte		12	dup(0)													; input storage for mGetString
 mGetCount		sdword		12															; max input string length for mGetString
 mGetBytes		sdword		?															; number of input bytes read by mGetString
 
 mDispInput		byte		12	dup(?)													; input storage for mDisplayString
-mDispInputRev	byte		11	dup(0)													; input storage for mDisplayString
-
 
 readOut			sdword		?															; output storage for ReadVal
 writeIn			sdword		?															; input storage for WriteVal
@@ -105,72 +111,52 @@ writeIn			sdword		?															; input storage for WriteVal
 inputArray		sdword		10	dup(?)													; array for main proc to store mGetString input into
 inputSum		sdword		0															; variable for sum of input numbers
 inputAvg		sdword		?															; variable for the average of input numbers
+avgDivRem		sdword		?															; holder for remainder during average calculation
 
 
 .code
 ; ---------------------------------------------------------------------------------
 ; Name: main
 ;
-; Write a test program (in main) which uses the ReadVal and WriteVal procedures above to:
+; Gets 10 valid integers from user input by calling ReadVal. Stores these values in an array.
+; Then displays the integers, their sum, and the truncated average of them with WriteVal.
 ;
-;    1) Get 10 valid integers from the user. Your ReadVal will be called within the loop in main. Do not put your counted loop within ReadVal.
-;    2) Stores these numeric values in an array.
-;    3) Display the integers, their sum, and their truncated average.
+; Preconditions: None
 ;
-; Your ReadVal will be called within the loop in main. Do not put your counted loop within ReadVal.
+; Postconditions: None
 ;
-; Preconditions: Preconditions are conditions that need to be true for the
-; procedure to work, like the type of the input provided or the state a
-; certain register need to be in.
+; Receives: registers used: ecx, edi, eax, esi, edx, ebx
+; inputArray = array for storing user input integers
+; errorInvalid = error message for invalid entries
+; mGetCount = max input string length for mGetString
+; mGetBytes = counter for number of bytes entered with mGetString macro
+; inputPrompt = prompt message for user input for mGetString macro
+; readOut = output of ReadVal proc
+; mGetInput = input/output for mGetString macro
+; arrayTitle = title for displaying array numbers with WriteVal proc
+; writeIn = input integer for WriteVal conversion to string
+; mDispInput = input string for mDisplayString macro
+; sumTitle = title for displaying sum of values with WriteVal
+; inputSum = input for WriteVal to display sum
+; avgTitle = title for displaying average of inputs with WriteVal
+; inputAvg = input for WriteVal to display average
 ;
-; Postconditions: Postconditions are any changes the procedure makes that are not
-; part of the returns. If any registers are changed and not restored, they
-; should be described here.
-;
-; Receives: Receives is like the input of a procedure; it describes everything
-; the procedure is given to work. Parameters, registers, and global variables
-; the procedure takes as inputs should be described here.
-;
-; Returns: Returns is the output of the procedure. Because assembly procedures don’t
-; return data like high-level languages, returns should describe all the data
-; the procedure intended to change. Parameters and global variables that the
-; procedure altered should be described here. Registers should only be mentioned
-; if you are trying to pass data back in them.
+; Returns: None
 ; ---------------------------------------------------------------------------------
 main PROC
-
-
-; TESTING------------------------------------
-
-
-;	call	ReadVal		offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
-
-
-;	call	WriteVal	writeIn, offset mDispInput
-
-;	mov		eax, mGetBytes
-;	call	writedec
-
-;	mov		edx, offset mGetInput
-;	call	writestring
-
-; ENDT---------------------------------------
-
-
-	; loop ReadVal to get 10 user inputs
-	mov		ecx, 10					; loop 10 times for 10 inputs
+	; setup for ReadVal to get 10 values from user
+	mov		ecx, 10							; loop 10 times for 10 inputs
 	mov		edi, offset inputArray			; set inputArray as destination address
 
 _readLoop:
-		; ReadVal gets one integer at a time w/ mGetString, converts, stores to readOut
+		; call ReadVal 10 times to store values in the array
 		push	offset errorInvalid
 		push	mGetCount
 		push	offset mGetBytes
 		push	offset inputPrompt
 		push	offset readOut
 		push	offset mGetInput
-		; return value stored in eax
-		call	ReadVal	;	offset mGetInput, offset readOut, offset inputPrompt, offset mGetBytes, mGetCount
+		call	ReadVal
 
 		; append readOut val to inputArray
 		mov		eax, [readOut]
@@ -178,89 +164,103 @@ _readLoop:
 		add		edi, 4				; increment inputArray index
 	loop	_readLoop
 
-
-
-	; Setup to display the integers, their sum, and truncated average with WriteVal
+	; Setup to display the integers with WriteVal
 	mov		esi, offset inputArray			; set inputArray as source address
-	mov		ecx, 10					; set loop counter to 10 to go through all array elements
+	mov		ecx, 10							; set loop counter to 10 to go through all array elements
+	mov		edx, offset arrayTitle
+	call	writestring
 
 _writeLoop:
 	; print inputArray one element at a time with WriteVal
 		; pass element of inputArray to WriteVal through writeIn variable, converts to string, printed by mDisplayString
 		mov		eax, [esi]
 		mov		writeIn, eax
-		push	offset mDispInputRev
 		push	offset mDispInput
 		push	writeIn
-		call	WriteVal;	writeIn, offset mDispInput
-		; increment inputArray indexer
-		add		esi, 4
+		call	WriteVal
+		add		esi, 4		; increment inputArray indexer
 		; pass next element of inputArray to WriteVal
 	loop	_writeLoop
 
+	call	crlf
 
-	; show sum
-		; add inputArray element val to inputSum
-		; increment inputArray indexer
-		; add next element val to inputSum
-		; call WriteVal on inputSum to convert and print with mDisplayString
+	; show sum setup and title display
+	mov		esi, offset inputArray
+	mov		ecx, 10
+	mov		edx, offset sumTitle
+	call	writestring
 
+_sumLoop:
+		mov		eax, [esi]
+		add		inputSum, eax		; add inputArray element val to inputSum
+		add		esi, 4				; increment inputArray indexer
+	loop _sumLoop					; add next element val to inputSum
 
-	; show average
-		; div inputSum by 10
-		; figure out rounding
-		; store rounded average to inputAvg
-		; call WriteVal on inputAvg to convert and print with mDisplayString
+	; call WriteVal on inputSum to convert and print with mDisplayString
+	push	offset mDispInput
+	push	inputSum
+	call	WriteVal
+	call	crlf
 
+	; display average title
+	mov		edx, offset avgTitle
+	call	writestring
 
-	Invoke ExitProcess,0	; exit to operating system
+	; calculate average of the 10 values
+	mov		eax, inputSum
+	mov		ebx, 10
+	cdq
+	idiv	ebx
+	mov		inputAvg, eax
+	
+	; call WriteVal on inputAvg to convert and print with mDisplayString
+	push	offset mDispInput
+	push	inputAvg
+	call	WriteVal
+
+	call	crlf
+
+	Invoke ExitProcess,0	
 main ENDP
 
 
 ; ---------------------------------------------------------------------------------
 ; Name: ReadVal
 ;
-;	takes string, outputs integer
+; Takes a string of number/s as input and converts it to an integer value. Gets input with
+; mGetString macro. Validates that the input has no other characters than a leading
+; + or - and that the number does not exceed SDWORD size. Stores converted number in 
+; outputNum for later storing into the array.
 ;
-;    1) Invoke the mGetString macro (see parameter requirements above) to get user input in the form of a string of digits.
-;    2) Convert (using string primitives) the string of ascii digits to its numeric value representation (SDWORD), validating
-;    the user’s input is a valid number (no letters, symbols, etc).
-;    3) Store this one value in a memory variable (output parameter, by reference). 
+; Preconditions: errorInvalid, mGetBytes, inputPrompt, readOut, and mGetInput
+; must be passed by reference. mGetCount must be passed by value.
 ;
-; Preconditions: Preconditions are conditions that need to be true for the
-; procedure to work, like the type of the input provided or the state a
-; certain register need to be in.
+; Postconditions: Local variables numChar and outputHolder are not reset at the end.
 ;
-; Postconditions: Postconditions are any changes the procedure makes that are not
-; part of the returns. If any registers are changed and not restored, they
-; should be described here.
+; Receives: registers used(all preserved): ecx, esi, eax, ebx, edi, edx
+; errorInvalid = by reference, error message for invalid input
+; mGetCount = by value, count input for mGetString macro
+; mGetBytes = input/output for byte count of input string for mGetString macro
+; inputPrompt = prompt message for getting input with mGetString
+; readOut = output for integer value once converted from string
+; mGetInput = input/output string for mGetString macro
 ;
-; Receives: Receives is like the input of a procedure; it describes everything
-; the procedure is given to work. Parameters, registers, and global variables
-; the procedure takes as inputs should be described here.
-;
-; Returns: Returns is the output of the procedure. Because assembly procedures don’t
-; return data like high-level languages, returns should describe all the data
-; the procedure intended to change. Parameters and global variables that the
-; procedure altered should be described here. Registers should only be mentioned
-; if you are trying to pass data back in them.
+; Returns: 
+; mGetInput = input/output string for mGetString macro
+; readOut = value set to integer value of the converted string
 ; ---------------------------------------------------------------------------------
 ReadVal PROC	inputStr, outputNum, prompt, bytes, count, errorMsg
-	local	numChar:dword, outputHolder:dword, negFlagRead:dword
+	local	numChar:dword, outputHolder:sdword, negFlagRead:dword
 
 	pushad
 
-
-	; get user input from mGetString
 _getInput:
 	mGetString	prompt, inputStr, bytes, count
 
-
-	; convert string to numbers
 	mov		[outputHolder], 0		; clear output variable
-	mov		ecx, [bytes]		; use number of bytes input as loop counter
-	cld							; clear direction flag to have pointer increment
-	mov		esi, inputStr		; move string to convert to esi
+	mov		ecx, [bytes]			; use number of bytes input as loop counter
+	cld								; clear direction flag to have pointer increment
+	mov		esi, inputStr			; move string-to-convert address to esi
 
 _readLoop:
 		lodsb						; store character in AL and increment esi
@@ -268,20 +268,23 @@ _readLoop:
 		jb		_notNum
 		cmp		al, 57				; check if char > 57
 		ja		_notNum
-		sub		al, 48				; subtract character value to get numerical value
+		sub		al, 48				; subtract character value to get numeric value
 		movzx	eax, al				; store numeric value
 		mov		numChar, eax
 		mov		eax, [outputHolder]	; move output value to eax for mult
 		mov		ebx, 10
 		imul	ebx
+		jo		_invalid
 		add		eax, numChar		; add numerical value
+		jo		_invalid
 		mov		outputHolder, eax	; store final numerical value in holder for next processing
 		mov		edi, outputNum
 		mov		[edi], eax			; store final integer in readOut
 	loop _readLoop
 
 	cmp		negFlagRead, 0
-	je		_return
+	je		_return					; check if negative value, go to return statement if positive
+
 	; multiply by -1 if negative flag was set
 	mov		ebx, -1
 	mov		esi, outputNum
@@ -291,13 +294,8 @@ _readLoop:
 	mov		[edi], eax
 	jmp		_return
 
-	; handle cases of + or - leading characters
-	; validate no non-digits or +/- lead and not too large for 32-bit register
-		; print error message if not valid
-			; get new input
-		; print error message if no input
-			; get new input
 _notNum:
+	; if non-number character is first character, check if it is +/- indicator, otherwise it's invalid
 	cmp		ecx, [bytes]
 	jl		_invalid
 	cmp		al, 45
@@ -306,26 +304,28 @@ _notNum:
 	je		_positive
 
 _negative:
+	; if negative, set flag and proceed to next character
 	mov		negFlagRead, 1
 	dec		ecx
 	jmp		_readLoop
 
 _positive:
+	; if positive, clear flag and proceed to next character
 	mov		negFlagRead, 0
 	dec		ecx
 	jmp		_readLoop
 
 _invalid:
+	; if invalid, display error message and get input again
 	mov		edx, errorMsg
 	call	writestring
 	call	crlf
 	jmp		_getInput
 
 _return:
-
 	mov		negFlagRead, 0
-	popad
 
+	popad
 
 	ret
 
@@ -336,54 +336,39 @@ ReadVal ENDP
 ; ---------------------------------------------------------------------------------
 ; Name: WriteVal
 ;
-;	takes integer, outputs string
+; Takes a numeric SDWORD value and converts it to a string of character numbers. 
+; Displays the string with mDisplayString macro.
 ;
-;    1) Convert a numeric SDWORD value (input parameter, by value) to a string of ASCII digits.
-;    2) Invoke the mDisplayString macro to print the ASCII representation of the SDWORD value to the output.
+; Preconditions: mDispInput must be passed by reference. writeIn must be passed
+; by value. 
+; 
+; Postconditions: Local variable asciiVal is not reset at the end.
 ;
+; Receives: registers used(all preserved): ebx, edi, eax, esi, edx
+; mDispInput = input/output for mDisplayString
+; writeIn = input numeric value to be converted to ASCII
 ;
-; Preconditions: Preconditions are conditions that need to be true for the
-; procedure to work, like the type of the input provided or the state a
-; certain register need to be in.
-;
-; Postconditions: Postconditions are any changes the procedure makes that are not
-; part of the returns. If any registers are changed and not restored, they
-; should be described here.
-;
-; Receives: Receives is like the input of a procedure; it describes everything
-; the procedure is given to work. Parameters, registers, and global variables
-; the procedure takes as inputs should be described here.
-;
-; Returns: Returns is the output of the procedure. Because assembly procedures don’t
-; return data like high-level languages, returns should describe all the data
-; the procedure intended to change. Parameters and global variables that the
-; procedure altered should be described here. Registers should only be mentioned
-; if you are trying to pass data back in them.
+; Returns: mDispInput is altered to store the ASCII converted integer for printing.
 ; ---------------------------------------------------------------------------------
-WriteVal PROC	numIn, strOut, strOutRev
+WriteVal PROC	numIn, strOut
 	local	asciiVal:sdword, negFlag:sdword
 
 	pushad
 
-
-	; convert SDWORD digits to ASCII
-	; CHANGE THIS TO SET NUMNEG FLAG TO 1 OR 0 AND JUST USE ALL SAME CODE BLOCKS UNTIL END, CHECK FLAG AND DO NEG HANDLING IF 1
-
 	; setup for processing, working backwards through string
 	mov		ebx, numIn
-	mov		asciiVal, ebx
+	mov		asciiVal, ebx		; asciiVal will hold value of each string character to be written to the string
 	mov		edi, strOut
 	add		edi, 11
 	std
-	; cld
 	mov		eax, 0
-	mov		[edi], eax	; add null terminating 0 to end of string
+	mov		[edi], eax			; add null terminating 0 to end of string
 	dec		edi
 
-	; check if SDWORD is negative or zero
+	; check if input is negative or zero
 	cmp		asciiVal, 0
-	jg		_posNum		; jump to positive integer handling
-	je		_zeroVal	; handling for value of zero input
+	jg		_posNum				; jump to positive integer handling if positive
+	je		_zeroVal			; jump to handling for value of zero input if zero
 
 	; since negative, convert to positive and set negFlag, will add negative ASCII sign last
 	mov		negFlag, 1
@@ -391,51 +376,40 @@ WriteVal PROC	numIn, strOut, strOutRev
 	imul	eax, asciiVal
 	mov		asciiVal, eax
 
-
-
 _posNum:
-	; if SDWORD is positive
-	; if SDWORD is less than 10
 	cmp		asciiVal, 10
-	jg		_bigNum		; jump to large number handling
+	jge		_bigNum				; jump to large number handling if input is >= 10
 
-	; add SDWORD to 48 for ASCII value
+	; add input to 48 for ASCII value
 	mov		eax, asciiVal
 	jmp		_finish
 	add		asciiVal, 48
 	lea		esi, asciiVal
-	; std
 	lodsb
 	stosb
 
-	; pass strOut to mDisplayString to print
-	jmp		_return
+	jmp		_return				; pass strOut to mDisplayString to print since it is a single digit number
 
 _bigNum:
-	; if SDWORD is 10 or greater
-	; div SDWORD by 10, add remainder to 48 (ASCII 0) for last digit
+	; if input is 10 or greater, div input by 10, add remainder to 48 (ASCII 0) for last digit
 	mov		eax, asciiVal
 	cdq
 	mov		ebx, 10
 	idiv	ebx
 	mov		asciiVal, edx		; move remainder to asciiVal
-	add		asciiVal, 48		; add 48 to remainder for ASCII
+	add		asciiVal, 48		; add 48 to remainder for ASCII value
 
 	; append digit to output string
-	; std								; clear flag to work backwards from end of strOut
-	; mov		edi, strOut+11			; set destination as end of strOut
 	lea		esi, asciiVal
-	;store quotient to restore after loading string byte
-	mov		ebx, eax
+	mov		ebx, eax			;store quotient to restore after loading string byte
 	lodsb
 	stosb
 	mov		eax, ebx
 
 _divLoop:
-		; if quotient of div is >= 10, div by 10 again, add remainder to 48 for next digit
-		; div until quotient is 0
-		cmp		eax, 10
-		jl		_finish		; if quotient is less than 10, do finish handling 
+		; divide quotient by 10 until it is < 10, adding remainders to the string
+		cmp		eax, 10			; if quotient of div is >= 10, div by 10 until <10, add remainder to 48 for next digit
+		jl		_finish			; if quotient is less than 10, do finish handling 
 		cdq
 		mov		ebx, 10
 		idiv	ebx
@@ -448,19 +422,17 @@ _divLoop:
 		lodsb
 		stosb
 		mov		eax, ebx
-		; repeat until quotient is < 10, result is first digit
-	jmp		_divLoop
-					; append digit to output string
-			; output string is in reverse order, so it must be reversed
+
+	jmp		_divLoop			; repeat until quotient is < 10, result is first digit
+
 _finish:
 	; append quotient as final digit
 	mov		asciiVal, eax
 	add		asciiVal, 48
 	lea		esi, asciiVal
-	; std
 	lodsb
 	stosb
-	cmp		negFlag, 1
+	cmp		negFlag, 1			; check if negative for negative finishing
 	je		_finishNeg
 	jmp		_return
 
@@ -468,7 +440,6 @@ _finishNeg:
 	; append negative sign if negative flag variable is set
 	mov		asciiVal, 45
 	lea		esi, asciiVal
-	; std
 	lodsb
 	stosb
 	jmp		_return
@@ -476,37 +447,15 @@ _finishNeg:
 _zeroVal:
 	mov		asciiVal, 48
 	lea		esi, asciiVal
-
 	lodsb
 	stosb
 
 _return:
-
-	; pass ASCII string to mDisplayString to print
-	; mDisplayString	strOut
-
-	 ; Reverse the string
-  ; mov    ecx, 11
-  ; lea    esi, strOut
-  ; add    esi, ecx
-  ; dec    esi
-  ; mov    edi, strOutRev
-  
-  ;   Reverse string
-; _revLoop:
-  ;   std
-    ; lodsb
-   ; cld
-   ; stosb
- ; LOOP   _revLoop
-
-	inc		edi
-	mov		negFlag, 0
+	inc		edi					; inc edi to get to beginning of string since stosb dec'd
+	mov		negFlag, 0		
+	mov		strOut, edi			; use beginning of string as strOut address to pass to macro
 	
-	mov		edx, edi
-	call	writestring
-	mov		al, ' '
-	call	writechar
+	mDisplayString	strOut		; pass ASCII string to mDisplayString to print
 
 	popad
 
